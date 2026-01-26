@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Search, Filter, FileText, Lock, CheckCircle2 } from 'lucide-react';
+import { Search, Filter, FileText, Lock, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { mockPayroll, mockPartTimers } from '@/data/mockData';
+import { usePayroll, usePartTimers } from '@/hooks/useDatabase';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
@@ -26,9 +26,12 @@ export default function PayrollPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
 
-  const getPartTimerName = (id: string) => mockPartTimers.find(p => p.id === id)?.name || 'Unknown';
+  const { data: payroll, isLoading: isLoadingPayroll } = usePayroll();
+  const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
 
-  const filteredPayroll = mockPayroll.filter(p => {
+  const getPartTimerName = (id: string) => (partTimers ?? []).find(p => p.id === id)?.name || 'Unknown';
+
+  const filteredPayroll = (payroll ?? []).filter(p => {
     const partTimerName = getPartTimerName(p.partTimerId).toLowerCase();
     const matchesSearch = partTimerName.includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
@@ -36,14 +39,25 @@ export default function PayrollPage() {
   });
 
   const totalAmount = filteredPayroll.reduce((sum, p) => sum + p.totalPay, 0);
-  const draftCount = mockPayroll.filter(p => p.status === 'draft').length;
-  const confirmedCount = mockPayroll.filter(p => p.status === 'confirmed').length;
+  const draftCount = (payroll ?? []).filter(p => p.status === 'draft').length;
+  const confirmedCount = (payroll ?? []).filter(p => p.status === 'confirmed').length;
 
   const statusConfig = {
     draft: { color: 'badge-pending', label: 'Draft' },
     confirmed: { color: 'badge-active', label: 'Confirmed' },
     paid: { color: 'bg-info/10 text-info', label: 'Paid' },
   };
+
+  if (isLoadingPayroll || isLoadingPartTimers) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading payroll data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -101,22 +115,22 @@ export default function PayrollPage() {
 
       {/* Payroll List */}
       <div className="space-y-3">
-        {filteredPayroll.map((payroll, index) => (
-          <div 
-            key={payroll.id}
-            onClick={() => setSelectedPayroll(payroll)}
+        {filteredPayroll.map((payrollItem, index) => (
+          <div
+            key={payrollItem.id}
+            onClick={() => setSelectedPayroll(payrollItem)}
             className="bg-card rounded-xl border border-border p-5 cursor-pointer hover:shadow-soft transition-shadow animate-slide-up"
             style={{ animationDelay: `${index * 50}ms` }}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
-                  {getPartTimerName(payroll.partTimerId).split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  {getPartTimerName(payrollItem.partTimerId).split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">{getPartTimerName(payroll.partTimerId)}</h3>
+                  <h3 className="font-semibold text-foreground">{getPartTimerName(payrollItem.partTimerId)}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {format(parseISO(payroll.dateRangeStart), 'MMM d')} - {format(parseISO(payroll.dateRangeEnd), 'MMM d, yyyy')}
+                    {format(parseISO(payrollItem.dateRangeStart), 'MMM d')} - {format(parseISO(payrollItem.dateRangeEnd), 'MMM d, yyyy')}
                   </p>
                 </div>
               </div>
@@ -124,20 +138,20 @@ export default function PayrollPage() {
               <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                 <div className="text-sm">
                   <p className="text-muted-foreground">Hours</p>
-                  <p className="font-medium">{payroll.totalHours}</p>
+                  <p className="font-medium">{payrollItem.totalHours}</p>
                 </div>
                 <div className="text-sm">
                   <p className="text-muted-foreground">Rate</p>
-                  <p className="font-medium">RM {payroll.rate}/hr</p>
+                  <p className="font-medium">RM {payrollItem.rate}/hr</p>
                 </div>
                 <div className="text-sm">
                   <p className="text-muted-foreground">Allowances</p>
-                  <p className="font-medium">RM {(payroll.transportAllowance + payroll.mealAllowance + payroll.bonus).toFixed(2)}</p>
+                  <p className="font-medium">RM {(payrollItem.transportAllowance + payrollItem.mealAllowance + payrollItem.bonus).toFixed(2)}</p>
                 </div>
                 <div className="text-right min-w-[100px]">
-                  <p className="text-lg font-bold text-foreground">RM {payroll.totalPay.toFixed(2)}</p>
-                  <span className={cn("badge-status", statusConfig[payroll.status].color)}>
-                    {statusConfig[payroll.status].label}
+                  <p className="text-lg font-bold text-foreground">RM {payrollItem.totalPay.toFixed(2)}</p>
+                  <span className={cn("badge-status", statusConfig[payrollItem.status].color)}>
+                    {statusConfig[payrollItem.status].label}
                   </span>
                 </div>
               </div>

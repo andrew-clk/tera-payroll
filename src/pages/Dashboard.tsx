@@ -2,8 +2,8 @@ import { Users, Calendar, Clock, DollarSign } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { UpcomingEvents } from '@/components/dashboard/UpcomingEvents';
-import { getDashboardStats, mockPayroll } from '@/data/mockData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useDashboardStats, usePayroll, usePartTimers } from '@/hooks/useDatabase';
 
 const payrollChartData = [
   { name: 'Oct', amount: 2400 },
@@ -13,7 +13,23 @@ const payrollChartData = [
 ];
 
 export default function Dashboard() {
-  const stats = getDashboardStats();
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: payrollData, isLoading: payrollLoading } = usePayroll();
+  const { data: partTimersData } = usePartTimers();
+
+  if (statsLoading || payrollLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const draftPayroll = payrollData?.filter(p => p.status === 'draft') || [];
+  const getPartTimerName = (id: string) => partTimersData?.find(p => p.id === id)?.name || 'Unknown';
 
   return (
     <div className="space-y-8">
@@ -27,7 +43,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Active Part-Timers"
-          value={stats.totalPartTimers}
+          value={stats?.totalPartTimers || 0}
           subtitle="2 new this month"
           icon={Users}
           variant="primary"
@@ -35,21 +51,21 @@ export default function Dashboard() {
         />
         <StatCard
           title="Upcoming Events"
-          value={stats.activeEvents}
+          value={stats?.activeEvents || 0}
           subtitle="Next 30 days"
           icon={Calendar}
           variant="info"
         />
         <StatCard
           title="Pending Payroll"
-          value={stats.pendingPayroll}
+          value={stats?.pendingPayroll || 0}
           subtitle="Requires confirmation"
           icon={Clock}
           variant="warning"
         />
         <StatCard
           title="Total Payroll"
-          value={`RM ${stats.totalPayrollThisMonth.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`}
+          value={`RM ${(stats?.totalPayrollThisMonth || 0).toLocaleString('en-MY', { minimumFractionDigits: 2 })}`}
           subtitle="January 2024"
           icon={DollarSign}
           variant="success"
@@ -94,25 +110,22 @@ export default function Dashboard() {
         <div className="bg-card rounded-xl border border-border p-6">
           <h3 className="text-lg font-semibold text-foreground mb-4">Pending Payroll</h3>
           <div className="space-y-3">
-            {mockPayroll.filter(p => p.status === 'draft').map((payroll, index) => {
-              const partTimer = { name: ['', 'Ahmad bin Ismail', 'Siti Aminah', 'Lee Wei Ming', 'Priya', 'Muhammad Hafiz'][parseInt(payroll.partTimerId)] };
-              return (
-                <div 
-                  key={payroll.id} 
-                  className="flex items-center justify-between p-4 rounded-lg bg-warning/5 border border-warning/20 animate-slide-up"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{partTimer.name}</p>
-                    <p className="text-sm text-muted-foreground">{payroll.totalHours} hours • RM{payroll.rate}/hr</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-foreground">RM {payroll.totalPay.toFixed(2)}</p>
-                    <span className="badge-status badge-pending">Draft</span>
-                  </div>
+            {draftPayroll.map((payroll, index) => (
+              <div
+                key={payroll.id}
+                className="flex items-center justify-between p-4 rounded-lg bg-warning/5 border border-warning/20 animate-slide-up"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div>
+                  <p className="font-medium text-foreground">{getPartTimerName(payroll.partTimerId)}</p>
+                  <p className="text-sm text-muted-foreground">{payroll.totalHours} hours • RM{payroll.rate}/hr</p>
                 </div>
-              );
-            })}
+                <div className="text-right">
+                  <p className="font-semibold text-foreground">RM {parseFloat(payroll.totalPay).toFixed(2)}</p>
+                  <span className="badge-status badge-pending">Draft</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

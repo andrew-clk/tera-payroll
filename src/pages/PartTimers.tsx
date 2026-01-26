@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Plus, Search, MoreVertical, Phone, Building2, CreditCard } from 'lucide-react';
+import { Plus, Search, MoreVertical, Phone, Building2, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { mockPartTimers } from '@/data/mockData';
+import { usePartTimers } from '@/hooks/useDatabase';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -29,12 +29,24 @@ import { PartTimer } from '@/types';
 export default function PartTimers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartTimer, setSelectedPartTimer] = useState<PartTimer | null>(null);
+  const { data: partTimers, isLoading } = usePartTimers();
 
-  const filteredPartTimers = mockPartTimers.filter(pt => 
+  const filteredPartTimers = (partTimers ?? []).filter(pt =>
     pt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     pt.ic.includes(searchQuery) ||
     pt.contact.includes(searchQuery)
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading part-timers...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
