@@ -61,8 +61,8 @@ export default function PartTimers() {
         </Button>
       </div>
 
-      {/* Table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -77,7 +77,7 @@ export default function PartTimers() {
           </TableHeader>
           <TableBody>
             {filteredPartTimers.map((partTimer, index) => (
-              <TableRow 
+              <TableRow
                 key={partTimer.id}
                 className="cursor-pointer hover:bg-muted/50 animate-slide-up"
                 style={{ animationDelay: `${index * 30}ms` }}
@@ -129,6 +129,66 @@ export default function PartTimers() {
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredPartTimers.map((partTimer, index) => (
+          <div
+            key={partTimer.id}
+            onClick={() => setSelectedPartTimer(partTimer)}
+            className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:shadow-soft transition-shadow animate-slide-up"
+            style={{ animationDelay: `${index * 30}ms` }}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
+                  {partTimer.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-foreground truncate">{partTimer.name}</h3>
+                  <p className="text-sm text-muted-foreground">{partTimer.contact}</p>
+                </div>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>Edit Profile</DropdownMenuItem>
+                  <DropdownMenuItem>View Attendance</DropdownMenuItem>
+                  <DropdownMenuItem>View Payroll</DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">IC Number</span>
+                <span className="font-medium">{partTimer.ic}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Bank</span>
+                <span className="font-medium">{partTimer.bankName}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Hourly Rate</span>
+                <span className="font-semibold text-primary">RM {partTimer.defaultRate.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-border">
+                <span className="text-muted-foreground">Status</span>
+                <span className={cn(
+                  "badge-status",
+                  partTimer.status === 'active' ? 'badge-active' : 'badge-inactive'
+                )}>
+                  {partTimer.status.charAt(0).toUpperCase() + partTimer.status.slice(1)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Details Dialog */}

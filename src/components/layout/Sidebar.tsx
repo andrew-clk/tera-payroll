@@ -1,17 +1,19 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Users, 
-  ClipboardCheck, 
-  DollarSign, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  ClipboardCheck,
+  DollarSign,
   BarChart3,
   ChevronLeft,
   ChevronRight,
-  Leaf
+  Leaf,
+  Menu,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
@@ -25,15 +27,52 @@ const navItems = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  // Close mobile menu on escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, []);
+
   return (
-    <aside 
-      className={cn(
-        "fixed left-0 top-0 h-screen bg-sidebar flex flex-col transition-all duration-300 z-50",
-        collapsed ? "w-20" : "w-64"
+    <>
+      {/* Mobile Menu Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setMobileOpen(!mobileOpen)}
+        className="fixed top-4 left-4 z-50 lg:hidden bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent"
+      >
+        {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </Button>
+
+      {/* Mobile Overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
-    >
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-screen bg-sidebar flex flex-col transition-all duration-300 z-50",
+          "lg:translate-x-0",
+          collapsed ? "w-20" : "w-64",
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
       {/* Logo */}
       <div className={cn(
         "flex items-center gap-3 px-6 py-6 border-b border-sidebar-border",
@@ -71,8 +110,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Collapse Button */}
-      <div className="p-4 border-t border-sidebar-border">
+      {/* Collapse Button - Desktop Only */}
+      <div className="hidden lg:block p-4 border-t border-sidebar-border">
         <Button
           variant="ghost"
           size="sm"
@@ -93,5 +132,6 @@ export function Sidebar() {
         </Button>
       </div>
     </aside>
+    </>
   );
 }
