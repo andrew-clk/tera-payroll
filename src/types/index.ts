@@ -15,8 +15,10 @@ export interface PartTimer {
   contact: string;
   bankName: string;
   bankAccount: string;
-  defaultRate: number;
+  defaultRate: string | number;
   status: 'active' | 'inactive';
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface Attendance {
@@ -24,10 +26,12 @@ export interface Attendance {
   partTimerId: string;
   eventId: string;
   clockIn: string;
-  clockOut?: string;
-  photoUrl?: string;
-  hoursWorked?: number;
+  clockOut?: string | null;
+  photoUrl?: string | null;
+  hoursWorked?: string | number | null;
   status: 'clocked-in' | 'completed' | 'pending';
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface Payroll {
@@ -35,13 +39,15 @@ export interface Payroll {
   partTimerId: string;
   dateRangeStart: string;
   dateRangeEnd: string;
-  totalHours: number;
-  rate: number;
-  transportAllowance: number;
-  mealAllowance: number;
-  bonus: number;
-  totalPay: number;
+  totalHours: string | number;
+  rate: string | number;
+  transportAllowance: string | number;
+  mealAllowance: string | number;
+  bonus: string | number;
+  totalPay: string | number;
   status: 'draft' | 'confirmed' | 'paid';
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface DashboardStats {
@@ -50,3 +56,14 @@ export interface DashboardStats {
   pendingPayroll: number;
   totalPayrollThisMonth: number;
 }
+
+// Helper functions for type conversions
+export const toNumber = (value: string | number | null | undefined): number => {
+  if (value === null || value === undefined) return 0;
+  return typeof value === 'string' ? parseFloat(value) : value;
+};
+
+export const toString = (value: string | number | null | undefined): string => {
+  if (value === null || value === undefined) return '0';
+  return typeof value === 'number' ? value.toString() : value;
+};

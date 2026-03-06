@@ -78,13 +78,18 @@ export function Sidebar() {
         "flex items-center gap-3 px-6 py-6 border-b border-sidebar-border",
         collapsed && "justify-center px-4"
       )}>
-        <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
-          <Leaf className="w-6 h-6 text-sidebar-primary-foreground" />
-        </div>
+        <img
+          src="/teradietlogo.avif"
+          alt="Tera Diet Logo"
+          className={cn(
+            "object-contain",
+            collapsed ? "w-10 h-10" : "w-12 h-12"
+          )}
+        />
         {!collapsed && (
           <div className="animate-fade-in">
-            <h1 className="font-bold text-sidebar-foreground text-lg">Tera Diet</h1>
-            <p className="text-xs text-sidebar-muted">Payroll System</p>
+            <h1 className="font-bold text-sidebar-foreground text-lg">Tera Payroll Hub</h1>
+            <p className="text-xs text-sidebar-muted">Staff Management</p>
           </div>
         )}
       </div>

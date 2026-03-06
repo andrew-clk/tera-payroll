@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { List, CalendarDays } from 'lucide-react';
+import { List, CalendarDays, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EventCalendar } from '@/components/events/EventCalendar';
 import { EventList } from '@/components/events/EventList';
+import { EventDialog } from '@/components/events/EventDialog';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'list' | 'calendar';
 
 export default function Events() {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
+  const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>();
 
   return (
     <div className="space-y-6">
@@ -18,9 +21,16 @@ export default function Events() {
           <h1 className="page-title">Events</h1>
           <p className="page-subtitle">Manage and schedule your events</p>
         </div>
-        
-        {/* View Toggle */}
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <Button className="gap-2" onClick={() => setIsEventDialogOpen(true)}>
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Event</span>
+          </Button>
+
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
           <Button
             variant="ghost"
             size="sm"
@@ -45,6 +55,7 @@ export default function Events() {
             <List className="w-4 h-4" />
             List
           </Button>
+          </div>
         </div>
       </div>
 
@@ -52,6 +63,13 @@ export default function Events() {
       <div className="animate-fade-in">
         {viewMode === 'calendar' ? <EventCalendar /> : <EventList />}
       </div>
+
+      {/* Event Dialog */}
+      <EventDialog
+        open={isEventDialogOpen}
+        onOpenChange={setIsEventDialogOpen}
+        selectedDate={selectedDate}
+      />
     </div>
   );
 }

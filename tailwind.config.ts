@@ -102,7 +102,7 @@ export default {
       },
       boxShadow: {
         'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-        'glow': '0 0 20px rgba(99, 102, 241, 0.15)',
+        'glow': '0 0 20px rgba(108, 180, 232, 0.20)',
       },
     },
   },

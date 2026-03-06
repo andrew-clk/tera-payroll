@@ -12,6 +12,23 @@ export async function getPartTimerById(id: string) {
   return result[0];
 }
 
+export async function createPartTimer(data: schema.NewPartTimer) {
+  const result = await db.insert(schema.partTimers).values(data).returning();
+  return result[0];
+}
+
+export async function updatePartTimer(id: string, data: Partial<schema.NewPartTimer>) {
+  const result = await db.update(schema.partTimers)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(schema.partTimers.id, id))
+    .returning();
+  return result[0];
+}
+
+export async function deletePartTimer(id: string) {
+  await db.delete(schema.partTimers).where(eq(schema.partTimers.id, id));
+}
+
 // Events
 export async function getAllEvents() {
   return await db.select().from(schema.events);
@@ -20,6 +37,23 @@ export async function getAllEvents() {
 export async function getEventById(id: string) {
   const result = await db.select().from(schema.events).where(eq(schema.events.id, id));
   return result[0];
+}
+
+export async function createEvent(data: schema.NewEvent) {
+  const result = await db.insert(schema.events).values(data).returning();
+  return result[0];
+}
+
+export async function updateEvent(id: string, data: Partial<schema.NewEvent>) {
+  const result = await db.update(schema.events)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(schema.events.id, id))
+    .returning();
+  return result[0];
+}
+
+export async function deleteEvent(id: string) {
+  await db.delete(schema.events).where(eq(schema.events.id, id));
 }
 
 // Attendance
@@ -38,6 +72,23 @@ export async function getAttendanceByPartTimer(partTimerId: string) {
 
 export async function getAttendanceByEvent(eventId: string) {
   return await db.select().from(schema.attendance).where(eq(schema.attendance.eventId, eventId));
+}
+
+export async function createAttendance(data: schema.NewAttendance) {
+  const result = await db.insert(schema.attendance).values(data).returning();
+  return result[0];
+}
+
+export async function updateAttendance(id: string, data: Partial<schema.NewAttendance>) {
+  const result = await db.update(schema.attendance)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(schema.attendance.id, id))
+    .returning();
+  return result[0];
+}
+
+export async function deleteAttendance(id: string) {
+  await db.delete(schema.attendance).where(eq(schema.attendance.id, id));
 }
 
 // Payroll

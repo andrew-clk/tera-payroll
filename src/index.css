@@ -1,31 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* Tera Diet Color Palette */
+    --background: 201 20% 98%;
+    --foreground: 201 15% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 201 15% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 201 15% 15%;
 
-    --primary: 234 89% 58%;
+    /* Primary - Tera Blue #6CB4E8 */
+    --primary: 201 75% 67%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    /* Secondary - Light blue background */
+    --secondary: 201 30% 95%;
+    --secondary-foreground: 201 15% 15%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 201 20% 95%;
+    --muted-foreground: 201 10% 45%;
 
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent - Tera Orange #F5A64A */
+    --accent: 33 89% 62%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -33,82 +37,91 @@
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    /* Warning - Tera Yellow #F9CC4B */
+    --warning: 44 94% 63%;
+    --warning-foreground: 201 15% 15%;
 
-    --info: 199 89% 48%;
+    /* Info - Tera Blue */
+    --info: 201 75% 67%;
     --info-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 234 89% 58%;
+    --border: 201 15% 90%;
+    --input: 201 15% 90%;
+    --ring: 201 75% 67%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 220 14% 96%;
-    --sidebar-primary: 234 89% 58%;
+    /* Sidebar - Dark blue */
+    --sidebar-background: 201 60% 20%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 201 75% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 18%;
-    --sidebar-accent-foreground: 220 14% 96%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 234 89% 58%;
-    --sidebar-muted: 220 9% 46%;
+    --sidebar-accent: 201 60% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 201 60% 25%;
+    --sidebar-ring: 201 75% 67%;
+    --sidebar-muted: 201 30% 60%;
 
-    --chart-1: 234 89% 58%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 199 89% 48%;
-    --chart-5: 280 87% 65%;
+    /* Charts - Tera colors */
+    --chart-1: 201 75% 67%;
+    --chart-2: 33 89% 62%;
+    --chart-3: 44 94% 63%;
+    --chart-4: 142 76% 36%;
+    --chart-5: 201 60% 50%;
   }
 
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 220 14% 96%;
+    /* Tera Diet Dark Mode */
+    --background: 201 40% 8%;
+    --foreground: 201 10% 95%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 220 14% 96%;
+    --card: 201 35% 12%;
+    --card-foreground: 201 10% 95%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 220 14% 96%;
+    --popover: 201 35% 12%;
+    --popover-foreground: 201 10% 95%;
 
-    --primary: 234 89% 65%;
+    /* Primary - Lighter Tera Blue for dark mode */
+    --primary: 201 70% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 18%;
-    --secondary-foreground: 220 14% 96%;
+    --secondary: 201 30% 18%;
+    --secondary-foreground: 201 10% 95%;
 
-    --muted: 222 47% 18%;
-    --muted-foreground: 220 9% 60%;
+    --muted: 201 30% 18%;
+    --muted-foreground: 201 10% 65%;
 
-    --accent: 222 47% 18%;
-    --accent-foreground: 220 14% 96%;
+    /* Accent - Tera Orange */
+    --accent: 33 85% 58%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 76% 42%;
+    --success: 142 70% 40%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 55%;
-    --warning-foreground: 0 0% 100%;
+    /* Warning - Tera Yellow */
+    --warning: 44 90% 60%;
+    --warning-foreground: 201 40% 10%;
 
-    --info: 199 89% 55%;
+    /* Info - Tera Blue */
+    --info: 201 70% 60%;
     --info-foreground: 0 0% 100%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 18%;
-    --ring: 234 89% 65%;
+    --border: 201 30% 18%;
+    --input: 201 30% 18%;
+    --ring: 201 70% 60%;
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 220 14% 96%;
-    --sidebar-primary: 234 89% 65%;
+    --sidebar-background: 201 45% 10%;
+    --sidebar-foreground: 201 10% 95%;
+    --sidebar-primary: 201 70% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 15%;
-    --sidebar-accent-foreground: 220 14% 96%;
-    --sidebar-border: 222 47% 15%;
-    --sidebar-ring: 234 89% 65%;
-    --sidebar-muted: 220 9% 50%;
+    --sidebar-accent: 201 40% 18%;
+    --sidebar-accent-foreground: 201 10% 95%;
+    --sidebar-border: 201 40% 15%;
+    --sidebar-ring: 201 70% 60%;
+    --sidebar-muted: 201 15% 55%;
   }
 }
 

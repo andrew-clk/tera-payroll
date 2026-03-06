@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Search, Clock, CheckCircle2, AlertCircle, Camera, Loader2 } from 'lucide-react';
+import { Search, Clock, CheckCircle2, AlertCircle, Camera, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAttendance, usePartTimers, useEvents } from '@/hooks/useDatabase';
+import { AttendanceDialog } from '@/components/attendance/AttendanceDialog';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import type { Attendance as AttendanceType } from '@/types';
 import {
   Select,
   SelectContent,
@@ -16,6 +18,8 @@ import {
 export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState('');
   const [eventFilter, setEventFilter] = useState<string>('all');
+  const [isClockInDialogOpen, setIsClockInDialogOpen] = useState(false);
+  const [clockingOutAttendance, setClockingOutAttendance] = useState<AttendanceType | null>(null);
 
   const { data: attendance, isLoading: isLoadingAttendance } = useAttendance();
   const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
@@ -53,9 +57,15 @@ export default function Attendance() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="page-header">
-        <h1 className="page-title">Attendance</h1>
-        <p className="page-subtitle">Track part-timer clock-in and clock-out records</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="page-header mb-0">
+          <h1 className="page-title">Attendance</h1>
+          <p className="page-subtitle">Track part-timer clock-in and clock-out records</p>
+        </div>
+        <Button className="gap-2" onClick={() => setIsClockInDialogOpen(true)}>
+          <Plus className="w-4 h-4" />
+          Clock In
+        </Button>
       </div>
 
       {/* Filters */}
@@ -154,6 +164,17 @@ export default function Attendance() {
                     <StatusIcon className="w-4 h-4" />
                     {statusConfig[attendanceRecord.status].label}
                   </div>
+                  {attendanceRecord.status === 'clocked-in' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setClockingOutAttendance(attendanceRecord)}
+                    >
+                      <Clock className="w-4 h-4" />
+                      Clock Out
+                    </Button>
+                  )}
                   {attendanceRecord.photoUrl && (
                     <Button variant="outline" size="sm" className="gap-2">
                       <Camera className="w-4 h-4" />
@@ -166,6 +187,21 @@ export default function Attendance() {
           );
         })}
       </div>
+
+      {/* Clock In Dialog */}
+      <AttendanceDialog
+        open={isClockInDialogOpen}
+        onOpenChange={setIsClockInDialogOpen}
+        mode="clock-in"
+      />
+
+      {/* Clock Out Dialog */}
+      <AttendanceDialog
+        open={!!clockingOutAttendance}
+        onOpenChange={(open) => !open && setClockingOutAttendance(null)}
+        attendance={clockingOutAttendance}
+        mode="clock-out"
+      />
     </div>
   );
 }

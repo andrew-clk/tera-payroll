@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Search, MoreVertical, Phone, Building2, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePartTimers } from '@/hooks/useDatabase';
+import { usePartTimers, useUpdatePartTimer, useDeletePartTimer } from '@/hooks/useDatabase';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -24,18 +24,58 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { PartTimer } from '@/types';
+import { PartTimerDialog } from '@/components/part-timers/PartTimerDialog';
+import { toast } from 'sonner';
 
 export default function PartTimers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartTimer, setSelectedPartTimer] = useState<PartTimer | null>(null);
+  const [editingPartTimer, setEditingPartTimer] = useState<PartTimer | null>(null);
+  const [deletingPartTimer, setDeletingPartTimer] = useState<PartTimer | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { data: partTimers, isLoading } = usePartTimers();
+  const updateMutation = useUpdatePartTimer();
+  const deleteMutation = useDeletePartTimer();
 
   const filteredPartTimers = (partTimers ?? []).filter(pt =>
     pt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     pt.ic.includes(searchQuery) ||
     pt.contact.includes(searchQuery)
   );
+
+  const handleDeactivate = async (partTimer: PartTimer) => {
+    try {
+      await updateMutation.mutateAsync({
+        id: partTimer.id,
+        data: { status: 'inactive' },
+      });
+      toast.success('Part-timer deactivated');
+      setDeletingPartTimer(null);
+    } catch (error) {
+      toast.error('Failed to deactivate part-timer');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast.success('Part-timer deleted');
+      setDeletingPartTimer(null);
+    } catch (error) {
+      toast.error('Failed to delete part-timer');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -67,7 +107,7 @@ export default function PartTimers() {
             className="pl-9"
           />
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="w-4 h-4" />
           Add Part-Timer
         </Button>
@@ -130,10 +170,15 @@ export default function PartTimers() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Edit Profile</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setEditingPartTimer(partTimer)}>Edit Profile</DropdownMenuItem>
                       <DropdownMenuItem>View Attendance</DropdownMenuItem>
                       <DropdownMenuItem>View Payroll</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setDeletingPartTimer(partTimer)}
+                      >
+                        Deactivate
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -169,10 +214,15 @@ export default function PartTimers() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Edit Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEditingPartTimer(partTimer)}>Edit Profile</DropdownMenuItem>
                   <DropdownMenuItem>View Attendance</DropdownMenuItem>
                   <DropdownMenuItem>View Payroll</DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => setDeletingPartTimer(partTimer)}
+                  >
+                    Deactivate
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -259,11 +309,47 @@ export default function PartTimers() {
                 <p className="text-2xl font-bold text-primary">RM {selectedPartTimer.defaultRate.toFixed(2)}/hr</p>
               </div>
 
-              <Button className="w-full">Edit Profile</Button>
+              <Button className="w-full" onClick={() => {
+                setEditingPartTimer(selectedPartTimer);
+                setSelectedPartTimer(null);
+              }}>Edit Profile</Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add/Edit Dialog */}
+      <PartTimerDialog
+        open={isAddDialogOpen || !!editingPartTimer}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsAddDialogOpen(false);
+            setEditingPartTimer(null);
+          }
+        }}
+        partTimer={editingPartTimer}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingPartTimer} onOpenChange={() => setDeletingPartTimer(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate Part-Timer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deactivate {deletingPartTimer?.name}? They will be marked as inactive but their records will be preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingPartTimer && handleDeactivate(deletingPartTimer)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

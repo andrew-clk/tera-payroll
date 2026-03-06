@@ -1,27 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="moneyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    <linearGradient id="teraGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6CB4E8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4A9DD6;stop-opacity:1" />
     </linearGradient>
   </defs>
 
   <!-- Background Circle -->
-  <circle cx="32" cy="32" r="30" fill="url(#moneyGradient)"/>
+  <circle cx="32" cy="32" r="30" fill="url(#teraGradient)"/>
 
-  <!-- Dollar Sign -->
-  <path d="M 32 12 L 32 52 M 24 18 Q 28 14 32 14 Q 38 14 38 20 Q 38 26 32 28 L 32 28 Q 26 30 26 36 Q 26 42 32 42 Q 36 42 40 38"
-        stroke="white"
-        stroke-width="4"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        fill="none"/>
+  <!-- Letter T for Tera -->
+  <text x="32" y="45" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="white" text-anchor="middle">T</text>
 
-  <!-- Coin Shine Effect -->
-  <path d="M 20 18 Q 25 16 30 18"
-        stroke="white"
-        stroke-width="2"
-        stroke-opacity="0.5"
-        stroke-linecap="round"
-        fill="none"/>
+  <!-- Accent Circle -->
+  <circle cx="44" cy="20" r="6" fill="#F5A64A"/>
 </svg>
