@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Search, Filter, FileText, Lock, CheckCircle2, Loader2 } from 'lucide-react';
+import { Search, Filter, FileText, Lock, CheckCircle2, Loader2, Download, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePayroll, usePartTimers } from '@/hooks/useDatabase';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { toNumber } from '@/types';
+import { toNumber, type EventPayBreakdown } from '@/types';
 import {
   Select,
   SelectContent,
@@ -21,16 +21,43 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Payroll } from '@/types';
+import { GeneratePayrollDialog } from '@/components/payroll/GeneratePayrollDialog';
+import { PayslipPreviewDialog } from '@/components/payroll/PayslipPreviewDialog';
+import { generatePayslipPDF } from '@/lib/generatePayslipPDF';
 
 export default function PayrollPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   const { data: payroll, isLoading: isLoadingPayroll } = usePayroll();
   const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
 
   const getPartTimerName = (id: string) => (partTimers ?? []).find(p => p.id === id)?.name || 'Unknown';
+  const getPartTimer = (id: string) => (partTimers ?? []).find(p => p.id === id);
+
+  const handleDownloadPayslip = (payrollItem: Payroll) => {
+    const partTimer = getPartTimer(payrollItem.partTimerId);
+    if (partTimer) {
+      generatePayslipPDF(
+        payrollItem,
+        {
+          name: partTimer.name,
+          ic: partTimer.ic,
+          bankName: partTimer.bankName,
+          bankAccount: partTimer.bankAccount,
+        },
+        'download'
+      );
+    }
+  };
+
+  const handlePreviewPayslip = (payrollItem: Payroll) => {
+    setSelectedPayroll(payrollItem);
+    setPreviewDialogOpen(true);
+  };
 
   const filteredPayroll = (payroll ?? []).filter(p => {
     const partTimerName = getPartTimerName(p.partTimerId).toLowerCase();
@@ -68,7 +95,7 @@ export default function PayrollPage() {
           <h1 className="page-title">Payroll</h1>
           <p className="page-subtitle">Generate and manage payroll records</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setGenerateDialogOpen(true)}>
           <FileText className="w-4 h-4" />
           Generate Payroll
         </Button>
@@ -119,12 +146,14 @@ export default function PayrollPage() {
         {filteredPayroll.map((payrollItem, index) => (
           <div
             key={payrollItem.id}
-            onClick={() => setSelectedPayroll(payrollItem)}
-            className="bg-card rounded-xl border border-border p-5 cursor-pointer hover:shadow-soft transition-shadow animate-slide-up"
+            className="bg-card rounded-xl border border-border p-5 hover:shadow-soft transition-shadow animate-slide-up"
             style={{ animationDelay: `${index * 50}ms` }}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
+              <div
+                className="flex items-center gap-4 flex-1 cursor-pointer"
+                onClick={() => setSelectedPayroll(payrollItem)}
+              >
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
                   {getPartTimerName(payrollItem.partTimerId).split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </div>
@@ -137,15 +166,7 @@ export default function PayrollPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                <div className="text-sm">
-                  <p className="text-muted-foreground">Hours</p>
-                  <p className="font-medium">{toNumber(payrollItem.totalHours).toFixed(2)}</p>
-                </div>
-                <div className="text-sm">
-                  <p className="text-muted-foreground">Rate</p>
-                  <p className="font-medium">RM {toNumber(payrollItem.rate).toFixed(2)}/hr</p>
-                </div>
-                <div className="text-sm">
+                <div className="text-sm hidden md:block">
                   <p className="text-muted-foreground">Allowances</p>
                   <p className="font-medium">RM {(toNumber(payrollItem.transportAllowance) + toNumber(payrollItem.mealAllowance) + toNumber(payrollItem.bonus)).toFixed(2)}</p>
                 </div>
@@ -154,6 +175,31 @@ export default function PayrollPage() {
                   <span className={cn("badge-status", statusConfig[payrollItem.status].color)}>
                     {statusConfig[payrollItem.status].label}
                   </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePreviewPayslip(payrollItem);
+                    }}
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span className="hidden sm:inline">Preview</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadPayslip(payrollItem);
+                    }}
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">PDF</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -184,18 +230,49 @@ export default function PayrollPage() {
 
               {/* Breakdown */}
               <div className="space-y-3">
-                <div className="flex justify-between py-2">
-                  <span className="text-muted-foreground">Total Hours</span>
-                  <span className="font-medium">{toNumber(selectedPayroll.totalHours).toFixed(2)} hrs</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-muted-foreground">Hourly Rate</span>
-                  <span className="font-medium">RM {toNumber(selectedPayroll.rate).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-t border-border pt-3">
-                  <span className="text-muted-foreground">Base Pay</span>
-                  <span className="font-medium">RM {(toNumber(selectedPayroll.totalHours) * toNumber(selectedPayroll.rate)).toFixed(2)}</span>
-                </div>
+                {/* Event Breakdown */}
+                {selectedPayroll.eventBreakdown && (() => {
+                  try {
+                    const breakdown = JSON.parse(selectedPayroll.eventBreakdown) as EventPayBreakdown[];
+                    return (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-muted-foreground">Event Breakdown</h4>
+                        {breakdown.map((item) => (
+                          <div key={item.eventId} className="flex justify-between py-2 bg-muted/30 px-3 rounded">
+                            <div>
+                              <span className="font-medium">{item.eventName}</span>
+                              <span className="text-xs text-muted-foreground ml-2">({item.daysWorked} {item.daysWorked === 1 ? 'day' : 'days'})</span>
+                            </div>
+                            <span className="font-medium">RM {item.salary.toFixed(2)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between py-2 border-t border-border pt-3">
+                          <span className="text-muted-foreground">Base Pay (Events)</span>
+                          <span className="font-medium">RM {breakdown.reduce((sum, item) => sum + item.salary, 0).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  } catch {
+                    // Fallback to old hourly-based display if parsing fails
+                    return (
+                      <>
+                        <div className="flex justify-between py-2">
+                          <span className="text-muted-foreground">Total Hours</span>
+                          <span className="font-medium">{toNumber(selectedPayroll.totalHours).toFixed(2)} hrs</span>
+                        </div>
+                        <div className="flex justify-between py-2">
+                          <span className="text-muted-foreground">Hourly Rate</span>
+                          <span className="font-medium">RM {toNumber(selectedPayroll.rate).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-t border-border pt-3">
+                          <span className="text-muted-foreground">Base Pay</span>
+                          <span className="font-medium">RM {(toNumber(selectedPayroll.totalHours) * toNumber(selectedPayroll.rate)).toFixed(2)}</span>
+                        </div>
+                      </>
+                    );
+                  }
+                })()}
+
                 <div className="flex justify-between py-2">
                   <span className="text-muted-foreground">Transport Allowance</span>
                   <span className="font-medium">RM {toNumber(selectedPayroll.transportAllowance).toFixed(2)}</span>
@@ -215,28 +292,42 @@ export default function PayrollPage() {
               </div>
 
               <DialogFooter className="flex gap-2">
-                {selectedPayroll.status === 'draft' ? (
-                  <>
-                    <Button variant="outline" className="flex-1 gap-2">
-                      <FileText className="w-4 h-4" />
-                      Generate PDF
-                    </Button>
-                    <Button className="flex-1 gap-2">
-                      <Lock className="w-4 h-4" />
-                      Confirm Payroll
-                    </Button>
-                  </>
-                ) : (
-                  <Button variant="outline" className="w-full gap-2">
-                    <FileText className="w-4 h-4" />
-                    Download Payslip
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={() => handlePreviewPayslip(selectedPayroll)}
+                >
+                  <FileText className="w-4 h-4" />
+                  Preview Payslip
+                </Button>
+                <Button
+                  className="flex-1 gap-2"
+                  onClick={() => handleDownloadPayslip(selectedPayroll)}
+                >
+                  <FileText className="w-4 h-4" />
+                  Download PDF
+                </Button>
               </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Generate Payroll Dialog */}
+      <GeneratePayrollDialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen} />
+
+      {/* Payslip Preview Dialog */}
+      {selectedPayroll && (
+        <PayslipPreviewDialog
+          open={previewDialogOpen}
+          onOpenChange={setPreviewDialogOpen}
+          payroll={selectedPayroll}
+          partTimerName={getPartTimer(selectedPayroll.partTimerId)?.name || ''}
+          partTimerIc={getPartTimer(selectedPayroll.partTimerId)?.ic || ''}
+          partTimerBankName={getPartTimer(selectedPayroll.partTimerId)?.bankName || ''}
+          partTimerBankAccount={getPartTimer(selectedPayroll.partTimerId)?.bankAccount || ''}
+        />
+      )}
     </div>
   );
 }

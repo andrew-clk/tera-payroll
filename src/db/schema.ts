@@ -28,6 +28,7 @@ export const events = pgTable('events', {
   startTime: text('start_time').notNull(),
   endTime: text('end_time').notNull(),
   location: text('location'),
+  rentalCost: decimal('rental_cost', { precision: 10, scale: 2 }).notNull().default('0'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -42,14 +43,26 @@ export const eventDailyAssignments = pgTable('event_daily_assignments', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Event Staff Salaries Table - stores per-event salary for each part-timer
+export const eventStaffSalaries = pgTable('event_staff_salaries', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  partTimerId: text('part_timer_id').notNull().references(() => partTimers.id),
+  salary: decimal('salary', { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Attendance Table
 export const attendance = pgTable('attendance', {
   id: text('id').primaryKey(),
   partTimerId: text('part_timer_id').notNull().references(() => partTimers.id),
   eventId: text('event_id').notNull().references(() => events.id),
-  clockIn: timestamp('clock_in').notNull(),
+  date: text('date').notNull(), // Date of attendance
+  clockIn: timestamp('clock_in'),
   clockOut: timestamp('clock_out'),
-  photoUrl: text('photo_url'),
+  clockInPhoto: text('clock_in_photo'), // Base64 image for clock in
+  clockOutPhoto: text('clock_out_photo'), // Base64 image for clock out
   hoursWorked: decimal('hours_worked', { precision: 5, scale: 2 }),
   status: attendanceStatusEnum('status').notNull().default('pending'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -62,6 +75,7 @@ export const payroll = pgTable('payroll', {
   partTimerId: text('part_timer_id').notNull().references(() => partTimers.id),
   dateRangeStart: text('date_range_start').notNull(),
   dateRangeEnd: text('date_range_end').notNull(),
+  eventBreakdown: text('event_breakdown'), // JSON string of event-based pay breakdown
   totalHours: decimal('total_hours', { precision: 8, scale: 2 }).notNull(),
   rate: decimal('rate', { precision: 10, scale: 2 }).notNull(),
   transportAllowance: decimal('transport_allowance', { precision: 10, scale: 2 }).notNull().default('0'),
@@ -82,6 +96,9 @@ export type NewEvent = typeof events.$inferInsert;
 
 export type EventDailyAssignment = typeof eventDailyAssignments.$inferSelect;
 export type NewEventDailyAssignment = typeof eventDailyAssignments.$inferInsert;
+
+export type EventStaffSalary = typeof eventStaffSalaries.$inferSelect;
+export type NewEventStaffSalary = typeof eventStaffSalaries.$inferInsert;
 
 export type Attendance = typeof attendance.$inferSelect;
 export type NewAttendance = typeof attendance.$inferInsert;

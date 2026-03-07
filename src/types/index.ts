@@ -6,6 +6,7 @@ export interface Event {
   startTime: string;
   endTime: string;
   location?: string;
+  rentalCost?: string | number;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -15,6 +16,15 @@ export interface EventDailyAssignment {
   eventId: string;
   date: string;
   assignedPartTimers: string[];
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+export interface EventStaffSalary {
+  id: string;
+  eventId: string;
+  partTimerId: string;
+  salary: string | number;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -36,13 +46,22 @@ export interface Attendance {
   id: string;
   partTimerId: string;
   eventId: string;
-  clockIn: string;
+  date: string;
+  clockIn?: string | null;
   clockOut?: string | null;
-  photoUrl?: string | null;
+  clockInPhoto?: string | null;
+  clockOutPhoto?: string | null;
   hoursWorked?: string | number | null;
   status: 'clocked-in' | 'completed' | 'pending';
   createdAt?: Date | string;
   updatedAt?: Date | string;
+}
+
+export interface EventPayBreakdown {
+  eventId: string;
+  eventName: string;
+  salary: number;
+  daysWorked: number;
 }
 
 export interface Payroll {
@@ -50,6 +69,7 @@ export interface Payroll {
   partTimerId: string;
   dateRangeStart: string;
   dateRangeEnd: string;
+  eventBreakdown?: string; // JSON string of EventPayBreakdown[]
   totalHours: string | number;
   rate: string | number;
   transportAllowance: string | number;

@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { Loader2, CalendarDays } from 'lucide-react';
 import type { Event } from '@/types';
 import { format, eachDayOfInterval, parseISO } from 'date-fns';
-import { createEventDailyAssignment, getEventDailyAssignments, deleteEventDailyAssignments } from '@/db/queries';
+import { createEventDailyAssignment, getEventDailyAssignments, deleteEventDailyAssignments, getEventStaffSalaries, createEventStaffSalary, deleteEventStaffSalaries } from '@/db/queries';
 import { useState, useEffect } from 'react';
 
 // Generate time slots in 30-minute intervals
@@ -42,6 +42,7 @@ const eventSchema = z.object({
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
   location: z.string().optional(),
+  rentalCost: z.string().min(1, 'Rental cost is required'),
 }).refine((data) => {
   // Validate that end date is not before start date
   return data.endDate >= data.startDate;
@@ -65,6 +66,7 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
   const updateMutation = useUpdateEvent();
   const { data: partTimers } = usePartTimers();
   const [dailyAssignments, setDailyAssignments] = useState<Record<string, string[]>>({});
+  const [staffSalaries, setStaffSalaries] = useState<Record<string, string>>({});
   const [eventDays, setEventDays] = useState<Date[]>([]);
 
   const {
@@ -108,6 +110,7 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
           startTime: event.startTime,
           endTime: event.endTime,
           location: event.location || '',
+          rentalCost: event.rentalCost?.toString() || '0',
         });
 
         // Load existing daily assignments
@@ -118,6 +121,15 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
           });
           setDailyAssignments(assignmentMap);
         });
+
+        // Load existing staff salaries
+        getEventStaffSalaries(event.id).then((salaries) => {
+          const salaryMap: Record<string, string> = {};
+          salaries.forEach((salary) => {
+            salaryMap[salary.partTimerId] = salary.salary;
+          });
+          setStaffSalaries(salaryMap);
+        });
       } else {
         // Reset to default values for new event
         reset({
@@ -127,8 +139,10 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
           startTime: '09:00',
           endTime: '17:00',
           location: '',
+          rentalCost: '0',
         });
         setDailyAssignments({});
+        setStaffSalaries({});
       }
     }
   }, [event, isEdit, open, reset, selectedDate]);
@@ -171,13 +185,15 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
         });
         eventId = event.id;
 
-        // Delete existing daily assignments
+        // Delete existing daily assignments and staff salaries
         await deleteEventDailyAssignments(eventId);
+        await deleteEventStaffSalaries(eventId);
       } else {
         eventId = crypto.randomUUID();
         await createMutation.mutateAsync({
           id: eventId,
           ...data,
+          rentalCost: data.rentalCost,
         });
       }
 
@@ -194,9 +210,22 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
         });
       }
 
+      // Create staff salaries
+      for (const [partTimerId, salary] of Object.entries(staffSalaries)) {
+        if (salary && parseFloat(salary) > 0) {
+          await createEventStaffSalary({
+            id: crypto.randomUUID(),
+            eventId,
+            partTimerId,
+            salary,
+          });
+        }
+      }
+
       toast.success(isEdit ? 'Event updated successfully' : 'Event created successfully');
       reset();
       setDailyAssignments({});
+      setStaffSalaries({});
       onOpenChange(false);
     } catch (error) {
       toast.error(isEdit ? 'Failed to update event' : 'Failed to create event');
@@ -279,6 +308,19 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
             <Input id="location" {...register('location')} placeholder="Main Store, KLCC" />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="rentalCost">Rental Cost (RM) *</Label>
+            <Input
+              id="rentalCost"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register('rentalCost')}
+              placeholder="0.00"
+            />
+            {errors.rentalCost && <p className="text-sm text-destructive">{errors.rentalCost.message}</p>}
+          </div>
+
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-primary" />
@@ -305,21 +347,42 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
                           <p className="text-sm text-muted-foreground">No active part-timers available</p>
                         ) : (
                           activePartTimers.map((partTimer) => (
-                            <div key={partTimer.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
+                            <div key={partTimer.id} className="flex items-start space-x-3 p-2 rounded-lg hover:bg-muted/50">
                               <Checkbox
                                 id={`pt-${dateStr}-${partTimer.id}`}
                                 checked={dailyAssignments[dateStr]?.includes(partTimer.id) || false}
                                 onCheckedChange={() => togglePartTimerForDay(dateStr, partTimer.id)}
+                                className="mt-0.5"
                               />
-                              <label
-                                htmlFor={`pt-${dateStr}-${partTimer.id}`}
-                                className="flex-1 cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                <div className="flex items-center justify-between">
+                              <div className="flex-1 space-y-2">
+                                <label
+                                  htmlFor={`pt-${dateStr}-${partTimer.id}`}
+                                  className="cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 block"
+                                >
                                   <span>{partTimer.name}</span>
-                                  <span className="text-xs text-muted-foreground">RM {partTimer.defaultRate}/hr</span>
-                                </div>
-                              </label>
+                                  <span className="text-xs text-muted-foreground ml-2">(Default: RM {partTimer.defaultRate}/hr)</span>
+                                </label>
+                                {dailyAssignments[dateStr]?.includes(partTimer.id) && (
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor={`salary-${partTimer.id}`} className="text-xs whitespace-nowrap">
+                                      Event Salary (RM):
+                                    </Label>
+                                    <Input
+                                      id={`salary-${partTimer.id}`}
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      placeholder="0.00"
+                                      value={staffSalaries[partTimer.id] || ''}
+                                      onChange={(e) => setStaffSalaries(prev => ({
+                                        ...prev,
+                                        [partTimer.id]: e.target.value
+                                      }))}
+                                      className="h-8 text-sm"
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))
                         )}

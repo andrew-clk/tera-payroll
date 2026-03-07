@@ -5,6 +5,7 @@ import {
   getAllAttendance,
   getAllPayroll,
   getDashboardStats,
+  getAllEventDailyAssignments,
   createPartTimer,
   updatePartTimer,
   deletePartTimer,
@@ -33,6 +34,14 @@ export function useEvents() {
   return useQuery({
     queryKey: ['events'],
     queryFn: getAllEvents,
+  });
+}
+
+// Event Daily Assignments
+export function useEventDailyAssignments() {
+  return useQuery({
+    queryKey: ['eventDailyAssignments'],
+    queryFn: getAllEventDailyAssignments,
   });
 }
 

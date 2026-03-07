@@ -1,5 +1,5 @@
 {
-  "id": "ea133842-b351-4e53-af45-ccc0cfed0276",
+  "id": "ff3aa30e-7433-498c-8f89-b8d47f238c42",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -174,6 +174,84 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.event_staff_salaries": {
+      "name": "event_staff_salaries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "part_timer_id": {
+          "name": "part_timer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "salary": {
+          "name": "salary",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "event_staff_salaries_event_id_events_id_fk": {
+          "name": "event_staff_salaries_event_id_events_id_fk",
+          "tableFrom": "event_staff_salaries",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_staff_salaries_part_timer_id_part_timers_id_fk": {
+          "name": "event_staff_salaries_part_timer_id_part_timers_id_fk",
+          "tableFrom": "event_staff_salaries",
+          "tableTo": "part_timers",
+          "columnsFrom": [
+            "part_timer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.events": {
       "name": "events",
       "schema": "",
@@ -219,6 +297,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "rental_cost": {
+          "name": "rental_cost",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
         },
         "created_at": {
           "name": "created_at",

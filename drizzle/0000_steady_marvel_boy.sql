@@ -23,6 +23,15 @@ CREATE TABLE "event_daily_assignments" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "event_staff_salaries" (
+	"id" text PRIMARY KEY NOT NULL,
+	"event_id" text NOT NULL,
+	"part_timer_id" text NOT NULL,
+	"salary" numeric(10, 2) NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "events" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
@@ -31,6 +40,7 @@ CREATE TABLE "events" (
 	"start_time" text NOT NULL,
 	"end_time" text NOT NULL,
 	"location" text,
+	"rental_cost" numeric(10, 2) DEFAULT '0' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -67,4 +77,6 @@ CREATE TABLE "payroll" (
 ALTER TABLE "attendance" ADD CONSTRAINT "attendance_part_timer_id_part_timers_id_fk" FOREIGN KEY ("part_timer_id") REFERENCES "public"."part_timers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attendance" ADD CONSTRAINT "attendance_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_daily_assignments" ADD CONSTRAINT "event_daily_assignments_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "event_staff_salaries" ADD CONSTRAINT "event_staff_salaries_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "event_staff_salaries" ADD CONSTRAINT "event_staff_salaries_part_timer_id_part_timers_id_fk" FOREIGN KEY ("part_timer_id") REFERENCES "public"."part_timers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payroll" ADD CONSTRAINT "payroll_part_timer_id_part_timers_id_fk" FOREIGN KEY ("part_timer_id") REFERENCES "public"."part_timers"("id") ON DELETE no action ON UPDATE no action;

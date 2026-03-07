@@ -1,6 +1,6 @@
 import { db } from './index';
 import * as schema from './schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // Part Timers
 export async function getAllPartTimers() {
@@ -57,6 +57,10 @@ export async function deleteEvent(id: string) {
 }
 
 // Event Daily Assignments
+export async function getAllEventDailyAssignments() {
+  return await db.select().from(schema.eventDailyAssignments);
+}
+
 export async function getEventDailyAssignments(eventId: string) {
   return await db.select().from(schema.eventDailyAssignments).where(eq(schema.eventDailyAssignments.eventId, eventId));
 }
@@ -78,6 +82,28 @@ export async function deleteEventDailyAssignments(eventId: string) {
   await db.delete(schema.eventDailyAssignments).where(eq(schema.eventDailyAssignments.eventId, eventId));
 }
 
+// Event Staff Salaries
+export async function getEventStaffSalaries(eventId: string) {
+  return await db.select().from(schema.eventStaffSalaries).where(eq(schema.eventStaffSalaries.eventId, eventId));
+}
+
+export async function createEventStaffSalary(data: schema.NewEventStaffSalary) {
+  const result = await db.insert(schema.eventStaffSalaries).values(data).returning();
+  return result[0];
+}
+
+export async function updateEventStaffSalary(id: string, data: Partial<schema.NewEventStaffSalary>) {
+  const result = await db.update(schema.eventStaffSalaries)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(schema.eventStaffSalaries.id, id))
+    .returning();
+  return result[0];
+}
+
+export async function deleteEventStaffSalaries(eventId: string) {
+  await db.delete(schema.eventStaffSalaries).where(eq(schema.eventStaffSalaries.eventId, eventId));
+}
+
 // Attendance
 export async function getAllAttendance() {
   return await db.select().from(schema.attendance);
@@ -94,6 +120,14 @@ export async function getAttendanceByPartTimer(partTimerId: string) {
 
 export async function getAttendanceByEvent(eventId: string) {
   return await db.select().from(schema.attendance).where(eq(schema.attendance.eventId, eventId));
+}
+
+export async function getAttendanceByPartTimerAndEvent(partTimerId: string, eventId: string) {
+  return await db.select().from(schema.attendance)
+    .where(and(
+      eq(schema.attendance.partTimerId, partTimerId),
+      eq(schema.attendance.eventId, eventId)
+    ));
 }
 
 export async function createAttendance(data: schema.NewAttendance) {
