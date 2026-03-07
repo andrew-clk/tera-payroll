@@ -182,7 +182,7 @@ export function ClockInOutDialog({
           partTimerId,
           eventId: job.eventId,
           date: job.date,
-          clockIn: now.toISOString(),
+          clockIn: now,
           clockInPhoto: photoUrl,
           status: 'clocked-in',
         });
@@ -200,7 +200,7 @@ export function ClockInOutDialog({
         const hoursWorked = ((now.getTime() - clockIn.getTime()) / (1000 * 60 * 60)).toFixed(2);
 
         await updateAttendance(job.attendance.id, {
-          clockOut: now.toISOString(),
+          clockOut: now,
           clockOutPhoto: photoUrl,
           hoursWorked,
           status: 'completed',
