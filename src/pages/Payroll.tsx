@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Search, Filter, FileText, Lock, CheckCircle2, Loader2, Download, Eye } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search, Filter, FileText, Lock, CheckCircle2, Loader2, Download, Eye, Calendar, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePayroll, usePartTimers } from '@/hooks/useDatabase';
-import { format, parseISO } from 'date-fns';
+import { usePayroll, usePartTimers, useEvents, useAttendance } from '@/hooks/useDatabase';
+import { format, parseISO, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toNumber, type EventPayBreakdown } from '@/types';
 import {
@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -32,9 +33,12 @@ export default function PayrollPage() {
   const [previewPayroll, setPreviewPayroll] = useState<Payroll | null>(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('records');
 
   const { data: payroll, isLoading: isLoadingPayroll } = usePayroll();
   const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
+  const { data: events, isLoading: isLoadingEvents } = useEvents();
+  const { data: attendance, isLoading: isLoadingAttendance } = useAttendance();
 
   const getPartTimerName = (id: string) => (partTimers ?? []).find(p => p.id === id)?.name || 'Unknown';
   const getPartTimer = (id: string) => (partTimers ?? []).find(p => p.id === id);
@@ -71,13 +75,66 @@ export default function PayrollPage() {
   const draftCount = (payroll ?? []).filter(p => p.status === 'draft').length;
   const confirmedCount = (payroll ?? []).filter(p => p.status === 'confirmed').length;
 
+  // Calculate unpaid jobs - completed events with attendance but no payroll generated
+  const unpaidJobs = useMemo(() => {
+    if (!events || !attendance || !payroll || !partTimers) return [];
+
+    const completedEvents = (events ?? []).filter(event =>
+      isPast(parseISO(event.endDate))
+    );
+
+    const unpaidList: Array<{
+      eventId: string;
+      eventName: string;
+      eventDate: string;
+      partTimerId: string;
+      partTimerName: string;
+      attendanceCount: number;
+    }> = [];
+
+    completedEvents.forEach(event => {
+      // Get all attendance for this event
+      const eventAttendance = (attendance ?? []).filter(att => att.eventId === event.id);
+
+      // Group by part-timer
+      const partTimerIds = [...new Set(eventAttendance.map(att => att.partTimerId))];
+
+      partTimerIds.forEach(partTimerId => {
+        // Check if payroll exists for this part-timer covering this event date
+        const hasPayroll = (payroll ?? []).some(p =>
+          p.partTimerId === partTimerId &&
+          event.endDate >= p.dateRangeStart &&
+          event.endDate <= p.dateRangeEnd
+        );
+
+        if (!hasPayroll) {
+          const partTimerAttendance = eventAttendance.filter(att => att.partTimerId === partTimerId);
+          const partTimer = (partTimers ?? []).find(pt => pt.id === partTimerId);
+
+          if (partTimer && partTimerAttendance.length > 0) {
+            unpaidList.push({
+              eventId: event.id,
+              eventName: event.name,
+              eventDate: event.endDate,
+              partTimerId,
+              partTimerName: partTimer.name,
+              attendanceCount: partTimerAttendance.length,
+            });
+          }
+        }
+      });
+    });
+
+    return unpaidList;
+  }, [events, attendance, payroll, partTimers]);
+
   const statusConfig = {
     draft: { color: 'badge-pending', label: 'Draft' },
     confirmed: { color: 'badge-active', label: 'Confirmed' },
     paid: { color: 'bg-info/10 text-info', label: 'Paid' },
   };
 
-  if (isLoadingPayroll || isLoadingPartTimers) {
+  if (isLoadingPayroll || isLoadingPartTimers || isLoadingEvents || isLoadingAttendance) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-2">
@@ -118,31 +175,54 @@ export default function PayrollPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by part-timer name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="records">
+            Payroll Records
+            {payroll && payroll.length > 0 && (
+              <span className="ml-2 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-xs font-semibold">
+                {payroll.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="unpaid">
+            Unpaid Jobs
+            {unpaidJobs.length > 0 && (
+              <span className="ml-2 bg-warning/20 text-warning px-2 py-0.5 rounded-full text-xs font-semibold">
+                {unpaidJobs.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Payroll List */}
+        {/* Payroll Records Tab */}
+        <TabsContent value="records" className="space-y-6 mt-6">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by part-timer name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Payroll List */}
       <div className="space-y-3">
         {filteredPayroll.map((payrollItem, index) => (
           <div
@@ -207,6 +287,57 @@ export default function PayrollPage() {
           </div>
         ))}
       </div>
+        </TabsContent>
+
+        {/* Unpaid Jobs Tab */}
+        <TabsContent value="unpaid" className="space-y-6 mt-6">
+          {unpaidJobs.length === 0 ? (
+            <div className="bg-card rounded-xl border border-border p-8 text-center">
+              <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">All Jobs Paid!</h3>
+              <p className="text-muted-foreground">There are no unpaid jobs at the moment.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {unpaidJobs.map((job, index) => (
+                <div
+                  key={`${job.eventId}-${job.partTimerId}`}
+                  className="bg-card rounded-xl border border-warning/30 p-5 hover:shadow-soft transition-shadow animate-slide-up"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center flex-shrink-0">
+                        <AlertCircle className="w-6 h-6 text-warning" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-foreground">{job.partTimerName}</h3>
+                          <span className="badge-status badge-pending">Unpaid</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          <Calendar className="w-3 h-3 inline mr-1" />
+                          {job.eventName}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Event Date: {format(parseISO(job.eventDate), 'MMM d, yyyy')} • {job.attendanceCount} {job.attendanceCount === 1 ? 'attendance' : 'attendances'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      className="gap-2"
+                      onClick={() => setGenerateDialogOpen(true)}
+                    >
+                      <FileText className="w-4 h-4" />
+                      Generate Payroll
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Payroll Details Dialog */}
       <Dialog open={!!selectedPayroll} onOpenChange={() => setSelectedPayroll(null)}>
