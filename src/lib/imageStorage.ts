@@ -6,6 +6,8 @@
  */
 export async function uploadImage(base64Image: string, filename: string): Promise<string> {
   try {
+    console.log('uploadImage called with filename:', filename);
+
     const response = await fetch('/api/upload-photo', {
       method: 'POST',
       headers: {
@@ -17,14 +19,19 @@ export async function uploadImage(base64Image: string, filename: string): Promis
       }),
     });
 
+    console.log('Upload response status:', response.status);
+
     if (!response.ok) {
-      throw new Error('Failed to upload image');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('Upload failed:', errorData);
+      throw new Error(errorData.details || errorData.error || 'Failed to upload image');
     }
 
     const data = await response.json();
+    console.log('Upload successful, URL:', data.url);
     return data.url;
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('Upload error in imageStorage:', error);
     throw error;
   }
 }

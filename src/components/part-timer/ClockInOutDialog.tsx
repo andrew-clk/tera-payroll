@@ -151,6 +151,8 @@ export function ClockInOutDialog({
     try {
       const now = new Date();
 
+      console.log('Starting submission...', { partTimerId, eventId: job.eventId, actionType });
+
       // Upload photo to Vercel Blob
       const filename = generateAttendancePhotoFilename(
         partTimerId,
@@ -159,10 +161,22 @@ export function ClockInOutDialog({
         actionType === 'clockIn' ? 'clock-in' : 'clock-out'
       );
 
-      const photoUrl = await uploadImage(photo, filename);
+      console.log('Uploading photo with filename:', filename);
+
+      let photoUrl: string;
+      try {
+        photoUrl = await uploadImage(photo, filename);
+        console.log('Photo uploaded successfully:', photoUrl);
+      } catch (uploadError) {
+        console.error('Photo upload failed:', uploadError);
+        toast.error('Failed to upload photo. Please check your internet connection.');
+        setIsSubmitting(false);
+        return;
+      }
 
       if (actionType === 'clockIn') {
         // Create new attendance record
+        console.log('Creating attendance record...');
         await createAttendance({
           id: crypto.randomUUID(),
           partTimerId,
@@ -177,9 +191,11 @@ export function ClockInOutDialog({
         // Update existing attendance record with clock out
         if (!job.attendance) {
           toast.error('No clock-in record found');
+          setIsSubmitting(false);
           return;
         }
 
+        console.log('Updating attendance record...');
         const clockIn = new Date(job.attendance.clockIn);
         const hoursWorked = ((now.getTime() - clockIn.getTime()) / (1000 * 60 * 60)).toFixed(2);
 
@@ -192,12 +208,14 @@ export function ClockInOutDialog({
         toast.success(`Clocked out successfully! You worked ${hoursWorked} hours.`);
       }
 
+      console.log('Submission completed successfully');
       stopCamera();
       onOpenChange(false);
       onSuccess();
     } catch (error) {
       console.error('Submit error:', error);
-      toast.error('Failed to submit. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to submit: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -226,24 +244,11 @@ export function ClockInOutDialog({
           </div>
 
           <div className="relative bg-muted rounded-lg overflow-hidden aspect-video">
-            {!photo && !isCameraActive && !useFileInput && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <Button onClick={startCamera} className="gap-2">
-                  <Camera className="w-4 h-4" />
-                  Start Camera
-                </Button>
-                <Button onClick={triggerFileInput} variant="outline" className="gap-2">
-                  <Upload className="w-4 h-4" />
-                  Upload Photo
-                </Button>
-              </div>
-            )}
-
-            {!photo && useFileInput && !isCameraActive && (
+            {!photo && !isCameraActive && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Button onClick={triggerFileInput} className="gap-2">
-                  <Upload className="w-4 h-4" />
-                  Select Photo
+                  <Camera className="w-4 h-4" />
+                  Take Photo
                 </Button>
               </div>
             )}
