@@ -44,6 +44,11 @@ export function ClockInOutDialog({
 
   const startCamera = async () => {
     try {
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia not supported');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
@@ -55,14 +60,24 @@ export function ClockInOutDialog({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.muted = true;
+        videoRef.current.setAttribute('playsinline', 'true');
         await videoRef.current.play();
         streamRef.current = stream;
         setIsCameraActive(true);
       }
     } catch (error) {
       console.error('Camera error:', error);
-      toast.error('Camera not available. Using file upload instead.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      if (errorMessage.includes('Permission denied') || errorMessage.includes('NotAllowedError')) {
+        toast.error('Camera permission denied. Please enable camera access.');
+      } else {
+        toast.error('Camera not available. Please use upload option.');
+      }
+
       setUseFileInput(true);
+      setIsCameraActive(false);
     }
   };
 
@@ -112,12 +127,18 @@ export function ClockInOutDialog({
     }
   };
 
-  // Cleanup on unmount
+  // Cleanup on unmount and when dialog closes
   useEffect(() => {
+    if (!open) {
+      stopCamera();
+      setPhoto('');
+      setUseFileInput(false);
+      setIsCameraActive(false);
+    }
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [open]);
 
   const handleSubmit = async () => {
     if (!photo) {
@@ -234,9 +255,10 @@ export function ClockInOutDialog({
                   autoPlay
                   playsInline
                   muted
+                  webkit-playsinline="true"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
                   <Button onClick={capturePhoto} size="lg" className="rounded-full w-16 h-16">
                     <Camera className="w-6 h-6" />
                   </Button>
@@ -261,7 +283,6 @@ export function ClockInOutDialog({
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="user"
               onChange={handleFileInput}
               className="hidden"
             />
