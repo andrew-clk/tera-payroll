@@ -23,10 +23,20 @@ export const partTimers = pgTable('part_timers', {
 export const events = pgTable('events', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  date: text('date').notNull(),
+  startDate: text('start_date').notNull(),
+  endDate: text('end_date').notNull(),
   startTime: text('start_time').notNull(),
   endTime: text('end_time').notNull(),
   location: text('location'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Event Daily Assignments Table
+export const eventDailyAssignments = pgTable('event_daily_assignments', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
   assignedPartTimers: text('assigned_part_timers').array().notNull().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -69,6 +79,9 @@ export type NewPartTimer = typeof partTimers.$inferInsert;
 
 export type Event = typeof events.$inferSelect;
 export type NewEvent = typeof events.$inferInsert;
+
+export type EventDailyAssignment = typeof eventDailyAssignments.$inferSelect;
+export type NewEventDailyAssignment = typeof eventDailyAssignments.$inferInsert;
 
 export type Attendance = typeof attendance.$inferSelect;
 export type NewAttendance = typeof attendance.$inferInsert;

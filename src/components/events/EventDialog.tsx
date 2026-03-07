@@ -6,19 +6,48 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useCreateEvent, useUpdateEvent, usePartTimers } from '@/hooks/useDatabase';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CalendarDays } from 'lucide-react';
 import type { Event } from '@/types';
-import { format } from 'date-fns';
+import { format, eachDayOfInterval, parseISO } from 'date-fns';
+import { createEventDailyAssignment, getEventDailyAssignments, deleteEventDailyAssignments } from '@/db/queries';
+import { useState, useEffect } from 'react';
+
+// Generate time slots in 30-minute intervals
+const generateTimeSlots = () => {
+  const slots: string[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      slots.push(timeStr);
+    }
+  }
+  return slots;
+};
+
+const TIME_SLOTS = generateTimeSlots();
 
 const eventSchema = z.object({
   name: z.string().min(1, 'Event name is required'),
-  date: z.string().min(1, 'Date is required'),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
   location: z.string().optional(),
-  assignedPartTimers: z.array(z.string()),
+}).refine((data) => {
+  // Validate that end date is not before start date
+  return data.endDate >= data.startDate;
+}, {
+  message: 'End date cannot be before start date',
+  path: ['endDate'],
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
@@ -35,6 +64,8 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
   const createMutation = useCreateEvent();
   const updateMutation = useUpdateEvent();
   const { data: partTimers } = usePartTimers();
+  const [dailyAssignments, setDailyAssignments] = useState<Record<string, string[]>>({});
+  const [eventDays, setEventDays] = useState<Date[]>([]);
 
   const {
     register,
@@ -48,48 +79,124 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
     defaultValues: event
       ? {
           name: event.name,
-          date: event.date,
+          startDate: event.startDate,
+          endDate: event.endDate,
           startTime: event.startTime,
           endTime: event.endTime,
           location: event.location || '',
-          assignedPartTimers: event.assignedPartTimers || [],
         }
       : {
-          date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          startDate: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          endDate: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
           startTime: '09:00',
           endTime: '17:00',
-          assignedPartTimers: [],
         },
   });
 
-  const assignedPartTimers = watch('assignedPartTimers');
+  const startDate = watch('startDate');
+  const endDate = watch('endDate');
 
-  const togglePartTimer = (partTimerId: string) => {
-    const current = assignedPartTimers || [];
-    if (current.includes(partTimerId)) {
-      setValue('assignedPartTimers', current.filter(id => id !== partTimerId));
-    } else {
-      setValue('assignedPartTimers', [...current, partTimerId]);
+  // Reset form and load existing data when event changes
+  useEffect(() => {
+    if (open) {
+      if (isEdit && event) {
+        // Reset form with event data
+        reset({
+          name: event.name,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          startTime: event.startTime,
+          endTime: event.endTime,
+          location: event.location || '',
+        });
+
+        // Load existing daily assignments
+        getEventDailyAssignments(event.id).then((assignments) => {
+          const assignmentMap: Record<string, string[]> = {};
+          assignments.forEach((assignment) => {
+            assignmentMap[assignment.date] = assignment.assignedPartTimers;
+          });
+          setDailyAssignments(assignmentMap);
+        });
+      } else {
+        // Reset to default values for new event
+        reset({
+          name: '',
+          startDate: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          endDate: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+          startTime: '09:00',
+          endTime: '17:00',
+          location: '',
+        });
+        setDailyAssignments({});
+      }
     }
+  }, [event, isEdit, open, reset, selectedDate]);
+
+  // Update event days when date range changes
+  useEffect(() => {
+    if (startDate && endDate) {
+      try {
+        const start = parseISO(startDate);
+        const end = parseISO(endDate);
+        if (start <= end) {
+          const days = eachDayOfInterval({ start, end });
+          setEventDays(days);
+        }
+      } catch (e) {
+        setEventDays([]);
+      }
+    }
+  }, [startDate, endDate]);
+
+  const togglePartTimerForDay = (date: string, partTimerId: string) => {
+    setDailyAssignments((prev) => {
+      const current = prev[date] || [];
+      if (current.includes(partTimerId)) {
+        return { ...prev, [date]: current.filter((id) => id !== partTimerId) };
+      } else {
+        return { ...prev, [date]: [...current, partTimerId] };
+      }
+    });
   };
 
   const onSubmit = async (data: EventFormData) => {
     try {
+      let eventId: string;
+
       if (isEdit && event) {
         await updateMutation.mutateAsync({
           id: event.id,
           data,
         });
-        toast.success('Event updated successfully');
+        eventId = event.id;
+
+        // Delete existing daily assignments
+        await deleteEventDailyAssignments(eventId);
       } else {
+        eventId = crypto.randomUUID();
         await createMutation.mutateAsync({
-          id: crypto.randomUUID(),
+          id: eventId,
           ...data,
-          assignedPartTimers: data.assignedPartTimers || [],
         });
-        toast.success('Event created successfully');
       }
+
+      // Create daily assignments for each day
+      for (const day of eventDays) {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const assignedPTs = dailyAssignments[dateStr] || [];
+
+        await createEventDailyAssignment({
+          id: crypto.randomUUID(),
+          eventId,
+          date: dateStr,
+          assignedPartTimers: assignedPTs,
+        });
+      }
+
+      toast.success(isEdit ? 'Event updated successfully' : 'Event created successfully');
       reset();
+      setDailyAssignments({});
       onOpenChange(false);
     } catch (error) {
       toast.error(isEdit ? 'Failed to update event' : 'Failed to create event');
@@ -113,20 +220,56 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="date">Date *</Label>
-              <Input id="date" type="date" {...register('date')} />
-              {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+              <Label htmlFor="startDate">Start Date *</Label>
+              <Input id="startDate" type="date" {...register('startDate')} />
+              {errors.startDate && <p className="text-sm text-destructive">{errors.startDate.message}</p>}
             </div>
             <div className="space-y-2">
+              <Label htmlFor="endDate">End Date *</Label>
+              <Input id="endDate" type="date" {...register('endDate')} />
+              {errors.endDate && <p className="text-sm text-destructive">{errors.endDate.message}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label htmlFor="startTime">Start Time *</Label>
-              <Input id="startTime" type="time" {...register('startTime')} />
+              <Select
+                value={watch('startTime')}
+                onValueChange={(value) => setValue('startTime', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select start time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {TIME_SLOTS.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.startTime && <p className="text-sm text-destructive">{errors.startTime.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="endTime">End Time *</Label>
-              <Input id="endTime" type="time" {...register('endTime')} />
+              <Select
+                value={watch('endTime')}
+                onValueChange={(value) => setValue('endTime', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select end time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {TIME_SLOTS.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.endTime && <p className="text-sm text-destructive">{errors.endTime.message}</p>}
             </div>
           </div>
@@ -137,31 +280,55 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
           </div>
 
           <div className="space-y-3">
-            <Label>Assign Part-Timers ({assignedPartTimers?.length || 0} selected)</Label>
-            <div className="border border-border rounded-lg p-4 max-h-[200px] overflow-y-auto space-y-2">
-              {activePartTimers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active part-timers available</p>
-              ) : (
-                activePartTimers.map((partTimer) => (
-                  <div key={partTimer.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
-                    <Checkbox
-                      id={`pt-${partTimer.id}`}
-                      checked={assignedPartTimers?.includes(partTimer.id)}
-                      onCheckedChange={() => togglePartTimer(partTimer.id)}
-                    />
-                    <label
-                      htmlFor={`pt-${partTimer.id}`}
-                      className="flex-1 cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span>{partTimer.name}</span>
-                        <span className="text-xs text-muted-foreground">RM {partTimer.defaultRate}/hr</span>
-                      </div>
-                    </label>
-                  </div>
-                ))
-              )}
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              <Label>Daily Staff Assignments</Label>
             </div>
+            {eventDays.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Select date range to assign staff for each day</p>
+            ) : (
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {eventDays.map((day) => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const assignedCount = dailyAssignments[dateStr]?.length || 0;
+
+                  return (
+                    <div key={dateStr} className="border border-border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-sm">{format(day, 'EEEE, MMM d, yyyy')}</h4>
+                        <span className="text-xs text-muted-foreground">
+                          {assignedCount} {assignedCount === 1 ? 'staff' : 'staff'}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {activePartTimers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No active part-timers available</p>
+                        ) : (
+                          activePartTimers.map((partTimer) => (
+                            <div key={partTimer.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50">
+                              <Checkbox
+                                id={`pt-${dateStr}-${partTimer.id}`}
+                                checked={dailyAssignments[dateStr]?.includes(partTimer.id) || false}
+                                onCheckedChange={() => togglePartTimerForDay(dateStr, partTimer.id)}
+                              />
+                              <label
+                                htmlFor={`pt-${dateStr}-${partTimer.id}`}
+                                className="flex-1 cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span>{partTimer.name}</span>
+                                  <span className="text-xs text-muted-foreground">RM {partTimer.defaultRate}/hr</span>
+                                </div>
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2">

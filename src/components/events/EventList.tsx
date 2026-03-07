@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Users, Clock, MoreVertical, Plus, Loader2 } from 'lucide-react';
 import { useEvents, usePartTimers, useDeleteEvent } from '@/hooks/useDatabase';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
+import { getEventDailyAssignments } from '@/db/queries';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -27,14 +28,36 @@ import type { Event } from '@/types';
 export function EventList() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deletingEvent, setDeletingEvent] = useState<Event | null>(null);
+  const [eventStaffCounts, setEventStaffCounts] = useState<Record<string, number>>({});
   const { data: events, isLoading: eventsLoading } = useEvents();
   const { data: partTimers } = usePartTimers();
   const deleteMutation = useDeleteEvent();
 
-  const getAssignedNames = (ids: string[]) => {
-    return ids
-      .map(id => (partTimers ?? []).find(p => p.id === id)?.name)
-      .filter(Boolean);
+  // Load staff counts for each event
+  useEffect(() => {
+    if (events) {
+      Promise.all(
+        events.map(async (event) => {
+          const assignments = await getEventDailyAssignments(event.id);
+          const uniqueStaff = new Set<string>();
+          assignments.forEach((assignment) => {
+            assignment.assignedPartTimers.forEach((ptId) => uniqueStaff.add(ptId));
+          });
+          return { eventId: event.id, count: uniqueStaff.size };
+        })
+      ).then((results) => {
+        const counts: Record<string, number> = {};
+        results.forEach(({ eventId, count }) => {
+          counts[eventId] = count;
+        });
+        setEventStaffCounts(counts);
+      });
+    }
+  }, [events]);
+
+  const getAssignedNames = (eventId: string) => {
+    // This will be loaded from daily assignments
+    return [];
   };
 
   const handleDelete = async (id: string) => {
@@ -47,8 +70,16 @@ export function EventList() {
     }
   };
 
-  const isPastEvent = (date: string) => {
-    return new Date(date) < new Date(new Date().setHours(0, 0, 0, 0));
+  const isPastEvent = (endDate: string) => {
+    return new Date(endDate) < new Date(new Date().setHours(0, 0, 0, 0));
+  };
+
+  const getDateRangeText = (startDate: string, endDate: string) => {
+    const days = differenceInDays(new Date(endDate), new Date(startDate)) + 1;
+    if (days === 1) {
+      return format(new Date(startDate), 'MMM d, yyyy');
+    }
+    return `${format(new Date(startDate), 'MMM d')} - ${format(new Date(endDate), 'MMM d, yyyy')} (${days} days)`;
   };
 
   if (eventsLoading) {
@@ -70,10 +101,13 @@ export function EventList() {
 
       <div className="space-y-3">
         {(events ?? []).map((event, index) => {
-          const isPast = isPastEvent(event.date);
+          const isPast = isPastEvent(event.endDate);
+          const staffCount = eventStaffCounts[event.id] || 0;
+          const days = differenceInDays(new Date(event.endDate), new Date(event.startDate)) + 1;
+
           return (
-            <div 
-              key={event.id} 
+            <div
+              key={event.id}
               className={cn(
                 "bg-card rounded-xl border border-border p-5 transition-all hover:shadow-soft animate-slide-up",
                 isPast && "opacity-60"
@@ -84,15 +118,19 @@ export function EventList() {
                 <div className="flex gap-4">
                   <div className="w-14 h-14 rounded-lg bg-primary/10 flex flex-col items-center justify-center flex-shrink-0">
                     <span className="text-xs text-primary font-medium">
-                      {format(parseISO(event.date), 'MMM')}
+                      {format(new Date(event.startDate), 'MMM')}
                     </span>
                     <span className="text-lg font-bold text-primary">
-                      {format(parseISO(event.date), 'd')}
+                      {format(new Date(event.startDate), 'd')}
                     </span>
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground mb-1">{event.name}</h3>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4" />
+                        <span>{getDateRangeText(event.startDate, event.endDate)}</span>
+                      </div>
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-4 h-4" />
                         <span>{event.startTime} - {event.endTime}</span>
@@ -106,18 +144,9 @@ export function EventList() {
                     </div>
                     <div className="flex items-center gap-2 mt-3">
                       <Users className="w-4 h-4 text-muted-foreground" />
-                      <div className="flex flex-wrap gap-1.5">
-                        {getAssignedNames(event.assignedPartTimers).slice(0, 3).map((name, i) => (
-                          <span key={i} className="badge-status badge-active text-xs">
-                            {name?.split(' ')[0]}
-                          </span>
-                        ))}
-                        {event.assignedPartTimers.length > 3 && (
-                          <span className="badge-status bg-muted text-muted-foreground text-xs">
-                            +{event.assignedPartTimers.length - 3}
-                          </span>
-                        )}
-                      </div>
+                      <span className="badge-status badge-active text-xs">
+                        {staffCount} staff across {days} {days === 1 ? 'day' : 'days'}
+                      </span>
                     </div>
                   </div>
                 </div>

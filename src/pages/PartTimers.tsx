@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePartTimers, useUpdatePartTimer, useDeletePartTimer } from '@/hooks/useDatabase';
 import { cn } from '@/lib/utils';
+import { toNumber } from '@/types';
 import {
   Table,
   TableBody,
@@ -152,7 +153,7 @@ export default function PartTimers() {
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-medium">
-                  RM {partTimer.defaultRate.toFixed(2)}
+                  RM {toNumber(partTimer.defaultRate).toFixed(2)}
                 </TableCell>
                 <TableCell>
                   <span className={cn(
@@ -237,7 +238,7 @@ export default function PartTimers() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Hourly Rate</span>
-                <span className="font-semibold text-primary">RM {partTimer.defaultRate.toFixed(2)}</span>
+                <span className="font-semibold text-primary">RM {toNumber(partTimer.defaultRate).toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-border">
                 <span className="text-muted-foreground">Status</span>
@@ -306,7 +307,7 @@ export default function PartTimers() {
               {/* Rate */}
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                 <p className="text-sm text-muted-foreground">Default Hourly Rate</p>
-                <p className="text-2xl font-bold text-primary">RM {selectedPartTimer.defaultRate.toFixed(2)}/hr</p>
+                <p className="text-2xl font-bold text-primary">RM {toNumber(selectedPartTimer.defaultRate).toFixed(2)}/hr</p>
               </div>
 
               <Button className="w-full" onClick={() => {

@@ -14,8 +14,11 @@ import {
   createAttendance,
   updateAttendance,
   deleteAttendance,
+  createPayroll,
+  updatePayroll,
+  deletePayroll,
 } from '@/db/queries';
-import type { NewPartTimer, NewEvent, NewAttendance } from '@/db/schema';
+import type { NewPartTimer, NewEvent, NewAttendance, NewPayroll } from '@/db/schema';
 
 // Part Timers
 export function usePartTimers() {
@@ -155,6 +158,41 @@ export function useDeleteAttendance() {
     mutationFn: deleteAttendance,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
+    },
+  });
+}
+
+// Payroll Mutations
+export function useCreatePayroll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createPayroll,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+    },
+  });
+}
+
+export function useUpdatePayroll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<NewPayroll> }) =>
+      updatePayroll(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+    },
+  });
+}
+
+export function useDeletePayroll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deletePayroll,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
     },
   });
 }

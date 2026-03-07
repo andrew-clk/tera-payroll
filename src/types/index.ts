@@ -1,11 +1,22 @@
 export interface Event {
   id: string;
   name: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   location?: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+export interface EventDailyAssignment {
+  id: string;
+  eventId: string;
+  date: string;
   assignedPartTimers: string[];
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface PartTimer {

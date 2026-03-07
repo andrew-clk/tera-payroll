@@ -6,6 +6,7 @@ import { useAttendance, usePartTimers, useEvents } from '@/hooks/useDatabase';
 import { AttendanceDialog } from '@/components/attendance/AttendanceDialog';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toNumber } from '@/types';
 import type { Attendance as AttendanceType } from '@/types';
 import {
   Select,
@@ -117,7 +118,7 @@ export default function Attendance() {
             <Clock className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <p className="text-2xl font-bold">{(attendance ?? []).reduce((sum, a) => sum + (a.hoursWorked || 0), 0).toFixed(1)}</p>
+            <p className="text-2xl font-bold">{(attendance ?? []).reduce((sum, a) => sum + toNumber(a.hoursWorked), 0).toFixed(1)}</p>
             <p className="text-sm text-muted-foreground">Total Hours This Period</p>
           </div>
         </div>
@@ -147,15 +148,15 @@ export default function Attendance() {
                 <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                   <div className="text-sm">
                     <p className="text-muted-foreground">Clock In</p>
-                    <p className="font-medium">{format(parseISO(attendanceRecord.clockIn), 'h:mm a')}</p>
+                    <p className="font-medium">{format(new Date(attendanceRecord.clockIn), 'h:mm a')}</p>
                   </div>
                   <div className="text-sm">
                     <p className="text-muted-foreground">Clock Out</p>
-                    <p className="font-medium">{attendanceRecord.clockOut ? format(parseISO(attendanceRecord.clockOut), 'h:mm a') : '-'}</p>
+                    <p className="font-medium">{attendanceRecord.clockOut ? format(new Date(attendanceRecord.clockOut), 'h:mm a') : '-'}</p>
                   </div>
                   <div className="text-sm">
                     <p className="text-muted-foreground">Hours</p>
-                    <p className="font-medium">{attendanceRecord.hoursWorked?.toFixed(2) || '-'}</p>
+                    <p className="font-medium">{attendanceRecord.hoursWorked ? toNumber(attendanceRecord.hoursWorked).toFixed(2) : '-'}</p>
                   </div>
                   <div className={cn(
                     "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",

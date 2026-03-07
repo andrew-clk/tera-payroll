@@ -198,7 +198,7 @@
   }
 
   .calendar-event {
-    @apply text-xs p-1.5 rounded bg-primary/10 text-primary font-medium truncate mb-1 cursor-pointer hover:bg-primary/20 transition-colors;
+    @apply text-xs p-1.5 px-2 rounded-md bg-primary text-primary-foreground font-medium truncate mb-1 cursor-pointer hover:bg-primary/90 transition-colors shadow-sm;
   }
 }
 

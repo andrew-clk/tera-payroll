@@ -1,19 +1,23 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Users, MapPin, Clock, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { mockEvents, mockPartTimers } from '@/data/mockData';
-import { 
-  format, 
-  startOfMonth, 
-  endOfMonth, 
-  startOfWeek, 
-  endOfWeek, 
-  addDays, 
-  isSameMonth, 
-  isSameDay, 
-  addMonths, 
+import { useEvents, usePartTimers } from '@/hooks/useDatabase';
+import { getEventDailyAssignments } from '@/db/queries';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  isSameMonth,
+  isSameDay,
+  addMonths,
   subMonths,
-  parseISO 
+  parseISO,
+  isWithinInterval,
+  eachDayOfInterval,
+  differenceInDays
 } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
@@ -21,12 +25,37 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
-import { Event } from '@/types';
+import { EventDialog } from './EventDialog';
+import type { Event, EventDailyAssignment } from '@/types';
 
 export function EventCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [eventAssignments, setEventAssignments] = useState<Record<string, EventDailyAssignment[]>>({});
+
+  const { data: events, isLoading } = useEvents();
+  const { data: partTimers } = usePartTimers();
+
+  // Load daily assignments for selected event
+  useEffect(() => {
+    if (events) {
+      Promise.all(
+        events.map(async (event) => {
+          const assignments = await getEventDailyAssignments(event.id);
+          return { eventId: event.id, assignments };
+        })
+      ).then((results) => {
+        const assignmentMap: Record<string, EventDailyAssignment[]> = {};
+        results.forEach(({ eventId, assignments }) => {
+          assignmentMap[eventId] = assignments;
+        });
+        setEventAssignments(assignmentMap);
+      });
+    }
+  }, [events]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
@@ -47,15 +76,28 @@ export function EventCalendar() {
   }
 
   const getEventsForDay = (date: Date) => {
-    return mockEvents.filter(event => 
-      isSameDay(parseISO(event.date), date)
-    );
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return (events ?? []).filter(event => {
+      // Compare as date strings to avoid timezone issues
+      return dateStr >= event.startDate && dateStr <= event.endDate;
+    });
   };
 
-  const getAssignedNames = (ids: string[]) => {
-    return ids
-      .map(id => mockPartTimers.find(p => p.id === id)?.name)
-      .filter(Boolean);
+  const getStaffCountForEventDay = (eventId: string, date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const assignments = eventAssignments[eventId] || [];
+    const dayAssignment = assignments.find(a => a.date === dateStr);
+    return dayAssignment?.assignedPartTimers.length || 0;
+  };
+
+  const getStaffNamesForEventDay = (eventId: string, date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const assignments = eventAssignments[eventId] || [];
+    const dayAssignment = assignments.find(a => a.date === dateStr);
+    const assignedIds = dayAssignment?.assignedPartTimers || [];
+    return assignedIds
+      .map(id => (partTimers ?? []).find(p => p.id === id)?.name)
+      .filter(Boolean) as string[];
   };
 
   return (
@@ -112,7 +154,7 @@ export function EventCalendar() {
                 <div
                   key={`${rowIndex}-${dateIndex}`}
                   className={cn(
-                    "min-h-[120px] p-2 border-b border-r border-border transition-colors",
+                    "min-h-[140px] p-2 border-b border-r border-border transition-colors",
                     !isCurrentMonth && "bg-muted/30",
                     isToday && "bg-primary/5",
                     dateIndex === 6 && "border-r-0"
@@ -125,19 +167,56 @@ export function EventCalendar() {
                   )}>
                     {format(date, 'd')}
                   </div>
-                  <div className="space-y-1">
-                    {dayEvents.slice(0, 2).map(event => (
-                      <div
-                        key={event.id}
-                        onClick={() => setSelectedEvent(event)}
-                        className="calendar-event"
-                      >
-                        {event.name}
-                      </div>
-                    ))}
-                    {dayEvents.length > 2 && (
+                  <div className="space-y-1.5">
+                    {dayEvents.slice(0, 3).map(event => {
+                      const staffCount = getStaffCountForEventDay(event.id, date);
+                      const staffNames = getStaffNamesForEventDay(event.id, date);
+                      const eventStart = new Date(event.startDate);
+                      const eventEnd = new Date(event.endDate);
+                      const isMultiDay = differenceInDays(eventEnd, eventStart) > 0;
+                      const isFirstDay = isSameDay(date, eventStart);
+                      const hasNoStaff = staffCount === 0;
+
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={() => setSelectedEvent(event)}
+                          className={cn(
+                            "cursor-pointer rounded-md p-1.5 px-2 transition-colors shadow-sm",
+                            hasNoStaff
+                              ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              : "bg-primary text-primary-foreground hover:bg-primary/90",
+                            isMultiDay && "font-semibold"
+                          )}
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            <span className={cn(
+                              "truncate leading-tight",
+                              isMultiDay ? "text-sm font-semibold" : "text-xs font-medium"
+                            )}>
+                              {event.name}
+                              {isMultiDay && !isFirstDay && " (cont.)"}
+                            </span>
+                            <div className="flex items-center gap-1 text-xs opacity-90">
+                              {hasNoStaff ? (
+                                <span className="font-medium">⚠️ 0 staff - Add staff!</span>
+                              ) : (
+                                <>
+                                  <Users className="w-3 h-3 inline flex-shrink-0" />
+                                  <span className="truncate">
+                                    {staffNames.slice(0, 2).join(", ")}
+                                    {staffNames.length > 2 && ` +${staffNames.length - 2}`}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {dayEvents.length > 3 && (
                       <div className="text-xs text-muted-foreground pl-1.5">
-                        +{dayEvents.length - 2} more
+                        +{dayEvents.length - 3} more
                       </div>
                     )}
                   </div>
@@ -150,42 +229,106 @@ export function EventCalendar() {
 
       {/* Event Details Dialog */}
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedEvent?.name}</DialogTitle>
           </DialogHeader>
           {selectedEvent && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Date</p>
-                  <p className="font-medium">{format(parseISO(selectedEvent.date), 'EEEE, MMMM d, yyyy')}</p>
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Clock className="w-4 h-4" />
+                    <span>Date Range</span>
+                  </div>
+                  <p className="font-medium">
+                    {format(new Date(selectedEvent.startDate), 'MMM d')} - {format(new Date(selectedEvent.endDate), 'MMM d, yyyy')}
+                    {' '}({differenceInDays(new Date(selectedEvent.endDate), new Date(selectedEvent.startDate)) + 1} days)
+                  </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Time</p>
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Clock className="w-4 h-4" />
+                    <span>Time</span>
+                  </div>
                   <p className="font-medium">{selectedEvent.startTime} - {selectedEvent.endTime}</p>
                 </div>
                 {selectedEvent.location && (
                   <div className="col-span-2">
-                    <p className="text-muted-foreground">Location</p>
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <MapPin className="w-4 h-4" />
+                      <span>Location</span>
+                    </div>
                     <p className="font-medium">{selectedEvent.location}</p>
                   </div>
                 )}
               </div>
+
               <div>
-                <p className="text-muted-foreground text-sm mb-2">Assigned Part-Timers ({selectedEvent.assignedPartTimers.length})</p>
-                <div className="flex flex-wrap gap-2">
-                  {getAssignedNames(selectedEvent.assignedPartTimers).map((name, i) => (
-                    <span key={i} className="badge-status badge-active">
-                      {name}
-                    </span>
-                  ))}
+                <div className="flex items-center gap-2 text-muted-foreground mb-3">
+                  <Users className="w-4 h-4" />
+                  <span className="text-sm">Daily Staff Assignments</span>
+                </div>
+                <div className="space-y-3">
+                  {eachDayOfInterval({
+                    start: new Date(selectedEvent.startDate),
+                    end: new Date(selectedEvent.endDate)
+                  }).map((day) => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    const assignments = eventAssignments[selectedEvent.id] || [];
+                    const dayAssignment = assignments.find(a => a.date === dateStr);
+                    const assignedIds = dayAssignment?.assignedPartTimers || [];
+                    const assignedNames = assignedIds
+                      .map(id => (partTimers ?? []).find(p => p.id === id)?.name)
+                      .filter(Boolean);
+
+                    return (
+                      <div key={dateStr} className="border border-border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="font-medium text-sm">{format(day, 'EEEE, MMM d, yyyy')}</p>
+                          <span className="text-xs text-muted-foreground">
+                            {assignedNames.length} staff
+                          </span>
+                        </div>
+                        {assignedNames.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {assignedNames.map((name, i) => (
+                              <span key={i} className="badge-status badge-active text-xs">
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No staff assigned</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditingEvent(selectedEvent);
+                setSelectedEvent(null);
+              }}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Event
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Event Dialog */}
+      <EventDialog
+        open={!!editingEvent}
+        onOpenChange={(open) => !open && setEditingEvent(null)}
+        event={editingEvent}
+      />
     </>
   );
 }

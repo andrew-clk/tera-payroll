@@ -56,6 +56,28 @@ export async function deleteEvent(id: string) {
   await db.delete(schema.events).where(eq(schema.events.id, id));
 }
 
+// Event Daily Assignments
+export async function getEventDailyAssignments(eventId: string) {
+  return await db.select().from(schema.eventDailyAssignments).where(eq(schema.eventDailyAssignments.eventId, eventId));
+}
+
+export async function createEventDailyAssignment(data: schema.NewEventDailyAssignment) {
+  const result = await db.insert(schema.eventDailyAssignments).values(data).returning();
+  return result[0];
+}
+
+export async function updateEventDailyAssignment(id: string, data: Partial<schema.NewEventDailyAssignment>) {
+  const result = await db.update(schema.eventDailyAssignments)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(schema.eventDailyAssignments.id, id))
+    .returning();
+  return result[0];
+}
+
+export async function deleteEventDailyAssignments(eventId: string) {
+  await db.delete(schema.eventDailyAssignments).where(eq(schema.eventDailyAssignments.eventId, eventId));
+}
+
 // Attendance
 export async function getAllAttendance() {
   return await db.select().from(schema.attendance);
@@ -105,6 +127,23 @@ export async function getPayrollByPartTimer(partTimerId: string) {
   return await db.select().from(schema.payroll).where(eq(schema.payroll.partTimerId, partTimerId));
 }
 
+export async function createPayroll(data: schema.NewPayroll) {
+  const result = await db.insert(schema.payroll).values(data).returning();
+  return result[0];
+}
+
+export async function updatePayroll(id: string, data: Partial<schema.NewPayroll>) {
+  const result = await db.update(schema.payroll)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(schema.payroll.id, id))
+    .returning();
+  return result[0];
+}
+
+export async function deletePayroll(id: string) {
+  await db.delete(schema.payroll).where(eq(schema.payroll.id, id));
+}
+
 // Dashboard Stats
 export async function getDashboardStats() {
   const partTimers = await getAllPartTimers();
@@ -112,7 +151,7 @@ export async function getDashboardStats() {
   const payrollRecords = await getAllPayroll();
 
   const activePartTimers = partTimers.filter(p => p.status === 'active').length;
-  const activeEvents = events.filter(e => new Date(e.date) >= new Date()).length;
+  const activeEvents = events.filter(e => new Date(e.endDate) >= new Date()).length;
   const pendingPayroll = payrollRecords.filter(p => p.status === 'draft').length;
   const totalPayrollThisMonth = payrollRecords.reduce((sum, p) => sum + parseFloat(p.totalPay), 0);
 

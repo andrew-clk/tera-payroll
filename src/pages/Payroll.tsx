@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { usePayroll, usePartTimers } from '@/hooks/useDatabase';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toNumber } from '@/types';
 import {
   Select,
   SelectContent,
@@ -38,7 +39,7 @@ export default function PayrollPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const totalAmount = filteredPayroll.reduce((sum, p) => sum + p.totalPay, 0);
+  const totalAmount = filteredPayroll.reduce((sum, p) => sum + toNumber(p.totalPay), 0);
   const draftCount = (payroll ?? []).filter(p => p.status === 'draft').length;
   const confirmedCount = (payroll ?? []).filter(p => p.status === 'confirmed').length;
 
@@ -130,7 +131,7 @@ export default function PayrollPage() {
                 <div>
                   <h3 className="font-semibold text-foreground">{getPartTimerName(payrollItem.partTimerId)}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {format(parseISO(payrollItem.dateRangeStart), 'MMM d')} - {format(parseISO(payrollItem.dateRangeEnd), 'MMM d, yyyy')}
+                    {format(new Date(payrollItem.dateRangeStart), 'MMM d')} - {format(new Date(payrollItem.dateRangeEnd), 'MMM d, yyyy')}
                   </p>
                 </div>
               </div>
@@ -138,18 +139,18 @@ export default function PayrollPage() {
               <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                 <div className="text-sm">
                   <p className="text-muted-foreground">Hours</p>
-                  <p className="font-medium">{payrollItem.totalHours}</p>
+                  <p className="font-medium">{toNumber(payrollItem.totalHours).toFixed(2)}</p>
                 </div>
                 <div className="text-sm">
                   <p className="text-muted-foreground">Rate</p>
-                  <p className="font-medium">RM {payrollItem.rate}/hr</p>
+                  <p className="font-medium">RM {toNumber(payrollItem.rate).toFixed(2)}/hr</p>
                 </div>
                 <div className="text-sm">
                   <p className="text-muted-foreground">Allowances</p>
-                  <p className="font-medium">RM {(payrollItem.transportAllowance + payrollItem.mealAllowance + payrollItem.bonus).toFixed(2)}</p>
+                  <p className="font-medium">RM {(toNumber(payrollItem.transportAllowance) + toNumber(payrollItem.mealAllowance) + toNumber(payrollItem.bonus)).toFixed(2)}</p>
                 </div>
                 <div className="text-right min-w-[100px]">
-                  <p className="text-lg font-bold text-foreground">RM {payrollItem.totalPay.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-foreground">RM {toNumber(payrollItem.totalPay).toFixed(2)}</p>
                   <span className={cn("badge-status", statusConfig[payrollItem.status].color)}>
                     {statusConfig[payrollItem.status].label}
                   </span>
@@ -176,7 +177,7 @@ export default function PayrollPage() {
                 <div>
                   <h3 className="text-lg font-semibold">{getPartTimerName(selectedPayroll.partTimerId)}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {format(parseISO(selectedPayroll.dateRangeStart), 'MMM d')} - {format(parseISO(selectedPayroll.dateRangeEnd), 'MMM d, yyyy')}
+                    {format(new Date(selectedPayroll.dateRangeStart), 'MMM d')} - {format(new Date(selectedPayroll.dateRangeEnd), 'MMM d, yyyy')}
                   </p>
                 </div>
               </div>
@@ -185,31 +186,31 @@ export default function PayrollPage() {
               <div className="space-y-3">
                 <div className="flex justify-between py-2">
                   <span className="text-muted-foreground">Total Hours</span>
-                  <span className="font-medium">{selectedPayroll.totalHours} hrs</span>
+                  <span className="font-medium">{toNumber(selectedPayroll.totalHours).toFixed(2)} hrs</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-muted-foreground">Hourly Rate</span>
-                  <span className="font-medium">RM {selectedPayroll.rate.toFixed(2)}</span>
+                  <span className="font-medium">RM {toNumber(selectedPayroll.rate).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-t border-border pt-3">
                   <span className="text-muted-foreground">Base Pay</span>
-                  <span className="font-medium">RM {(selectedPayroll.totalHours * selectedPayroll.rate).toFixed(2)}</span>
+                  <span className="font-medium">RM {(toNumber(selectedPayroll.totalHours) * toNumber(selectedPayroll.rate)).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-muted-foreground">Transport Allowance</span>
-                  <span className="font-medium">RM {selectedPayroll.transportAllowance.toFixed(2)}</span>
+                  <span className="font-medium">RM {toNumber(selectedPayroll.transportAllowance).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-muted-foreground">Meal Allowance</span>
-                  <span className="font-medium">RM {selectedPayroll.mealAllowance.toFixed(2)}</span>
+                  <span className="font-medium">RM {toNumber(selectedPayroll.mealAllowance).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-muted-foreground">Bonus</span>
-                  <span className="font-medium">RM {selectedPayroll.bonus.toFixed(2)}</span>
+                  <span className="font-medium">RM {toNumber(selectedPayroll.bonus).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-3 border-t-2 border-primary/20 bg-primary/5 -mx-6 px-6 mt-4">
                   <span className="font-semibold text-lg">Total Pay</span>
-                  <span className="font-bold text-lg text-primary">RM {selectedPayroll.totalPay.toFixed(2)}</span>
+                  <span className="font-bold text-lg text-primary">RM {toNumber(selectedPayroll.totalPay).toFixed(2)}</span>
                 </div>
               </div>
 
