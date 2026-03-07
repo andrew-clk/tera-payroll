@@ -20,7 +20,7 @@ export function PhotoViewerDialog({
 }: PhotoViewerDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Attendance Photos</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -28,45 +28,45 @@ export function PhotoViewerDialog({
           </p>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Clock In Photo */}
           <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
               <Camera className="w-4 h-4" />
               Clock In Photo
             </h3>
             {clockInPhoto ? (
-              <div className="bg-muted rounded-lg overflow-hidden">
+              <div className="bg-muted rounded-lg overflow-hidden aspect-video">
                 <img
                   src={clockInPhoto}
                   alt="Clock In"
-                  className="w-full h-auto object-contain"
+                  className="w-full h-full object-cover"
                 />
               </div>
             ) : (
-              <div className="bg-muted rounded-lg p-8 text-center text-muted-foreground">
-                No clock-in photo available
+              <div className="bg-muted rounded-lg aspect-video flex items-center justify-center text-center text-muted-foreground text-sm">
+                No photo
               </div>
             )}
           </div>
 
           {/* Clock Out Photo */}
           <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
               <Camera className="w-4 h-4" />
               Clock Out Photo
             </h3>
             {clockOutPhoto ? (
-              <div className="bg-muted rounded-lg overflow-hidden">
+              <div className="bg-muted rounded-lg overflow-hidden aspect-video">
                 <img
                   src={clockOutPhoto}
                   alt="Clock Out"
-                  className="w-full h-auto object-contain"
+                  className="w-full h-full object-cover"
                 />
               </div>
             ) : (
-              <div className="bg-muted rounded-lg p-8 text-center text-muted-foreground">
-                No clock-out photo available
+              <div className="bg-muted rounded-lg aspect-video flex items-center justify-center text-center text-muted-foreground text-sm">
+                No photo
               </div>
             )}
           </div>

@@ -192,6 +192,32 @@ export default function PartTimerJobs() {
                       </div>
                     </CardHeader>
                     <CardContent>
+                      {/* Photo Thumbnails */}
+                      {(job.attendance?.clockInPhoto || job.attendance?.clockOutPhoto) && (
+                        <div className="flex gap-2 mb-3">
+                          {job.attendance.clockInPhoto && (
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground mb-1">Clock In</p>
+                              <img
+                                src={job.attendance.clockInPhoto}
+                                alt="Clock In"
+                                className="w-full h-20 object-cover rounded-lg border border-border"
+                              />
+                            </div>
+                          )}
+                          {job.attendance.clockOutPhoto && (
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground mb-1">Clock Out</p>
+                              <img
+                                src={job.attendance.clockOutPhoto}
+                                alt="Clock Out"
+                                className="w-full h-20 object-cover rounded-lg border border-border"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex gap-2">
                         {canClockIn(job) && (
                           <Button onClick={() => handleClockIn(job)} className="gap-2 flex-1">
