@@ -125,7 +125,6 @@ export default function PartTimers() {
               <TableHead className="font-semibold">IC Number</TableHead>
               <TableHead className="font-semibold">Contact</TableHead>
               <TableHead className="font-semibold">Bank Details</TableHead>
-              <TableHead className="font-semibold text-right">Hourly Rate</TableHead>
               <TableHead className="font-semibold">Status</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
@@ -153,9 +152,6 @@ export default function PartTimers() {
                     <p className="font-medium">{partTimer.bankName}</p>
                     <p className="text-muted-foreground">{partTimer.bankAccount}</p>
                   </div>
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  RM {toNumber(partTimer.defaultRate).toFixed(2)}
                 </TableCell>
                 <TableCell>
                   <span className={cn(
@@ -246,10 +242,6 @@ export default function PartTimers() {
                 <span className="text-muted-foreground">Bank</span>
                 <span className="font-medium">{partTimer.bankName}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Hourly Rate</span>
-                <span className="font-semibold text-primary">RM {toNumber(partTimer.defaultRate).toFixed(2)}</span>
-              </div>
               <div className="flex justify-between items-center pt-2 border-t border-border">
                 <span className="text-muted-foreground">Status</span>
                 <span className={cn(
@@ -312,12 +304,6 @@ export default function PartTimers() {
                     <p className="font-medium">{selectedPartTimer.bankAccount}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Rate */}
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-sm text-muted-foreground">Default Hourly Rate</p>
-                <p className="text-2xl font-bold text-primary">RM {toNumber(selectedPartTimer.defaultRate).toFixed(2)}/hr</p>
               </div>
 
               <Button className="w-full" onClick={() => {

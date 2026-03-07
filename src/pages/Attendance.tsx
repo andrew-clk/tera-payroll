@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Clock, CheckCircle2, AlertCircle, Camera, Loader2, Plus, Image, Edit, Calendar } from 'lucide-react';
+import { Search, Clock, CheckCircle2, AlertCircle, Camera, Loader2, Plus, Image, Edit, Calendar, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAttendance, usePartTimers, useEvents, useUpdateAttendance, useEventDailyAssignments } from '@/hooks/useDatabase';
@@ -92,6 +92,72 @@ function EditClockInDialog({ attendance, onClose, partTimerName, eventName }: Ed
   );
 }
 
+interface EditIncentiveDialogProps {
+  attendance: AttendanceType | null;
+  onClose: () => void;
+  partTimerName: string;
+  eventName: string;
+}
+
+function EditIncentiveDialog({ attendance, onClose, partTimerName, eventName }: EditIncentiveDialogProps) {
+  const [incentive, setIncentive] = useState(
+    attendance?.incentive ? toNumber(attendance.incentive).toString() : '0.00'
+  );
+  const updateMutation = useUpdateAttendance();
+
+  const handleSave = async () => {
+    if (!attendance) return;
+
+    try {
+      await updateMutation.mutateAsync({
+        id: attendance.id,
+        data: { incentive: incentive }
+      });
+
+      toast.success('Incentive updated');
+      onClose();
+    } catch (error) {
+      toast.error('Failed to update incentive');
+    }
+  };
+
+  return (
+    <Dialog open={!!attendance} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Incentive</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Part-Timer</p>
+            <p className="font-medium">{partTimerName}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Event</p>
+            <p className="font-medium">{eventName}</p>
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Incentive Amount (RM)</label>
+            <p className="text-xs text-muted-foreground mb-2">Add overtime pay or extra incentives for this job</p>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={incentive}
+              onChange={(e) => setIncentive(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave}>Save Changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState('');
   const [eventFilter, setEventFilter] = useState<string>('all');
@@ -100,6 +166,7 @@ export default function Attendance() {
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceType | null>(null);
   const [editingAttendance, setEditingAttendance] = useState<AttendanceType | null>(null);
+  const [editingIncentiveAttendance, setEditingIncentiveAttendance] = useState<AttendanceType | null>(null);
   const [activeTab, setActiveTab] = useState('ongoing');
 
   const handleViewPhotos = (record: AttendanceType) => {
@@ -294,6 +361,17 @@ export default function Attendance() {
                 View Photos
               </Button>
             )}
+            {!attendanceRecord.isExpected && attendanceRecord.clockIn && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setEditingIncentiveAttendance(attendanceRecord)}
+              >
+                <DollarSign className="w-4 h-4" />
+                {toNumber(attendanceRecord.incentive || 0) > 0 ? 'Edit Incentive' : 'Add Incentive'}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -426,6 +504,14 @@ export default function Attendance() {
         onClose={() => setEditingAttendance(null)}
         partTimerName={editingAttendance ? getPartTimerName(editingAttendance.partTimerId) : ''}
         eventName={editingAttendance ? getEventName(editingAttendance.eventId) : ''}
+      />
+
+      {/* Edit Incentive Dialog */}
+      <EditIncentiveDialog
+        attendance={editingIncentiveAttendance}
+        onClose={() => setEditingIncentiveAttendance(null)}
+        partTimerName={editingIncentiveAttendance ? getPartTimerName(editingIncentiveAttendance.partTimerId) : ''}
+        eventName={editingIncentiveAttendance ? getEventName(editingIncentiveAttendance.eventId) : ''}
       />
 
       {/* Photo Viewer Dialog */}

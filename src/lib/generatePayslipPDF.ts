@@ -135,9 +135,8 @@ export function generatePayslipPDF(
   // Summary table
   const summaryData = [
     ['Base Pay', `RM ${basePay.toFixed(2)}`],
-    ['Transport Allowance', `RM ${parseFloat(payroll.transportAllowance.toString()).toFixed(2)}`],
-    ['Meal Allowance', `RM ${parseFloat(payroll.mealAllowance.toString()).toFixed(2)}`],
-    ['Bonus', `RM ${parseFloat(payroll.bonus.toString()).toFixed(2)}`],
+    ['Allowance', `RM ${parseFloat(payroll.allowance.toString()).toFixed(2)}`],
+    ['Incentive', `RM ${parseFloat(payroll.incentive.toString()).toFixed(2)}`],
   ];
 
   autoTable(doc, {

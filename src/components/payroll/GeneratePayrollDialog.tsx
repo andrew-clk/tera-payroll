@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { usePartTimers, useEvents, useCreatePayroll } from '@/hooks/useDatabase';
+import { usePartTimers, useEvents, useCreatePayroll, useAttendance } from '@/hooks/useDatabase';
 import { getEventDailyAssignments, getEventStaffSalaries } from '@/db/queries';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -24,9 +24,7 @@ const payrollSchema = z.object({
   partTimerId: z.string().min(1, 'Please select a part-timer'),
   dateRangeStart: z.string().min(1, 'Start date is required'),
   dateRangeEnd: z.string().min(1, 'End date is required'),
-  transportAllowance: z.string().optional(),
-  mealAllowance: z.string().optional(),
-  bonus: z.string().optional(),
+  allowance: z.string().optional(),
 }).refine((data) => data.dateRangeEnd >= data.dateRangeStart, {
   message: 'End date cannot be before start date',
   path: ['dateRangeEnd'],
@@ -42,9 +40,11 @@ interface GeneratePayrollDialogProps {
 export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDialogProps) {
   const { data: partTimers } = usePartTimers();
   const { data: events } = useEvents();
+  const { data: attendance } = useAttendance();
   const createMutation = useCreatePayroll();
   const [eventBreakdown, setEventBreakdown] = useState<EventPayBreakdown[]>([]);
   const [totalPay, setTotalPay] = useState(0);
+  const [totalIncentives, setTotalIncentives] = useState(0);
 
   const {
     register,
@@ -56,18 +56,14 @@ export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDia
   } = useForm<PayrollFormData>({
     resolver: zodResolver(payrollSchema),
     defaultValues: {
-      transportAllowance: '0',
-      mealAllowance: '0',
-      bonus: '0',
+      allowance: '0',
     },
   });
 
   const selectedPartTimerId = watch('partTimerId');
   const dateRangeStart = watch('dateRangeStart');
   const dateRangeEnd = watch('dateRangeEnd');
-  const transportAllowance = watch('transportAllowance') || '0';
-  const mealAllowance = watch('mealAllowance') || '0';
-  const bonus = watch('bonus') || '0';
+  const allowance = watch('allowance') || '0';
 
   // Calculate event breakdown when part-timer or date range changes
   useEffect(() => {
@@ -129,15 +125,24 @@ export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDia
 
       setEventBreakdown(breakdown);
 
-      const allowances =
-        parseFloat(transportAllowance) +
-        parseFloat(mealAllowance) +
-        parseFloat(bonus);
-      setTotalPay(basePay + allowances);
+      // Calculate total incentives from attendance records in date range
+      const incentives = (attendance ?? [])
+        .filter(att =>
+          att.partTimerId === selectedPartTimerId &&
+          att.date >= dateRangeStart &&
+          att.date <= dateRangeEnd &&
+          att.incentive
+        )
+        .reduce((sum, att) => sum + parseFloat(att.incentive || '0'), 0);
+
+      setTotalIncentives(incentives);
+
+      const totalAllowance = parseFloat(allowance);
+      setTotalPay(basePay + totalAllowance + incentives);
     };
 
     calculateBreakdown();
-  }, [selectedPartTimerId, dateRangeStart, dateRangeEnd, events, transportAllowance, mealAllowance, bonus]);
+  }, [selectedPartTimerId, dateRangeStart, dateRangeEnd, events, attendance, allowance]);
 
   const onSubmit = async (data: PayrollFormData) => {
     try {
@@ -154,9 +159,8 @@ export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDia
         eventBreakdown: JSON.stringify(eventBreakdown),
         totalHours: '0', // Not used for event-based payroll
         rate: '0', // Not used for event-based payroll
-        transportAllowance: data.transportAllowance || '0',
-        mealAllowance: data.mealAllowance || '0',
-        bonus: data.bonus || '0',
+        allowance: data.allowance || '0',
+        incentive: totalIncentives.toString(),
         totalPay: totalPay.toString(),
       });
 
@@ -235,39 +239,25 @@ export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDia
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="transportAllowance">Transport (RM)</Label>
+              <Label htmlFor="allowance">Allowance (RM)</Label>
+              <p className="text-xs text-muted-foreground">Transport, meal, or other allowances</p>
               <Input
-                id="transportAllowance"
+                id="allowance"
                 type="number"
                 step="0.01"
                 min="0"
-                {...register('transportAllowance')}
+                {...register('allowance')}
                 placeholder="0.00"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mealAllowance">Meal (RM)</Label>
-              <Input
-                id="mealAllowance"
-                type="number"
-                step="0.01"
-                min="0"
-                {...register('mealAllowance')}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bonus">Bonus (RM)</Label>
-              <Input
-                id="bonus"
-                type="number"
-                step="0.01"
-                min="0"
-                {...register('bonus')}
-                placeholder="0.00"
-              />
+              <Label>Incentive (RM)</Label>
+              <p className="text-xs text-muted-foreground">Auto-calculated from attendance records</p>
+              <div className="flex items-center h-10 px-3 py-2 border border-input bg-muted rounded-md">
+                <span className="font-medium">RM {totalIncentives.toFixed(2)}</span>
+              </div>
             </div>
           </div>
 

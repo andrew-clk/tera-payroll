@@ -13,7 +13,6 @@ export const partTimers = pgTable('part_timers', {
   contact: text('contact').notNull(),
   bankName: text('bank_name').notNull(),
   bankAccount: text('bank_account').notNull(),
-  defaultRate: decimal('default_rate', { precision: 10, scale: 2 }).notNull(),
   status: partTimerStatusEnum('status').notNull().default('active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -64,6 +63,7 @@ export const attendance = pgTable('attendance', {
   clockInPhoto: text('clock_in_photo'), // Base64 image for clock in
   clockOutPhoto: text('clock_out_photo'), // Base64 image for clock out
   hoursWorked: decimal('hours_worked', { precision: 5, scale: 2 }),
+  incentive: decimal('incentive', { precision: 10, scale: 2 }).notNull().default('0'),
   status: attendanceStatusEnum('status').notNull().default('pending'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -78,9 +78,8 @@ export const payroll = pgTable('payroll', {
   eventBreakdown: text('event_breakdown'), // JSON string of event-based pay breakdown
   totalHours: decimal('total_hours', { precision: 8, scale: 2 }).notNull(),
   rate: decimal('rate', { precision: 10, scale: 2 }).notNull(),
-  transportAllowance: decimal('transport_allowance', { precision: 10, scale: 2 }).notNull().default('0'),
-  mealAllowance: decimal('meal_allowance', { precision: 10, scale: 2 }).notNull().default('0'),
-  bonus: decimal('bonus', { precision: 10, scale: 2 }).notNull().default('0'),
+  allowance: decimal('allowance', { precision: 10, scale: 2 }).notNull().default('0'),
+  incentive: decimal('incentive', { precision: 10, scale: 2 }).notNull().default('0'),
   totalPay: decimal('total_pay', { precision: 10, scale: 2 }).notNull(),
   status: payrollStatusEnum('status').notNull().default('draft'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

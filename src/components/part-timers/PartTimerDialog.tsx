@@ -17,7 +17,6 @@ const partTimerSchema = z.object({
   contact: z.string().min(1, 'Contact number is required'),
   bankName: z.string().min(1, 'Bank name is required'),
   bankAccount: z.string().min(1, 'Bank account is required'),
-  defaultRate: z.string().min(1, 'Hourly rate is required'),
   status: z.enum(['active', 'inactive']).default('active'),
 });
 
@@ -50,12 +49,10 @@ export function PartTimerDialog({ open, onOpenChange, partTimer }: PartTimerDial
           contact: partTimer.contact,
           bankName: partTimer.bankName,
           bankAccount: partTimer.bankAccount,
-          defaultRate: partTimer.defaultRate.toString(),
           status: partTimer.status,
         }
       : {
           status: 'active',
-          defaultRate: '15.00',
         },
   });
 
@@ -72,17 +69,13 @@ export function PartTimerDialog({ open, onOpenChange, partTimer }: PartTimerDial
       if (isEdit && partTimer) {
         await updateMutation.mutateAsync({
           id: partTimer.id,
-          data: {
-            ...cleanedData,
-            defaultRate: cleanedData.defaultRate,
-          },
+          data: cleanedData,
         });
         toast.success('Part-timer updated successfully');
       } else {
         await createMutation.mutateAsync({
           id: crypto.randomUUID(),
           ...cleanedData,
-          defaultRate: cleanedData.defaultRate,
         });
         toast.success('Part-timer added successfully');
       }
@@ -134,30 +127,17 @@ export function PartTimerDialog({ open, onOpenChange, partTimer }: PartTimerDial
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="defaultRate">Hourly Rate (RM) *</Label>
-              <Input
-                id="defaultRate"
-                type="number"
-                step="0.01"
-                {...register('defaultRate')}
-                placeholder="15.00"
-              />
-              {errors.defaultRate && <p className="text-sm text-destructive">{errors.defaultRate.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={status} onValueChange={(value) => setValue('status', value as 'active' | 'inactive')}>
-                <SelectTrigger id="status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select value={status} onValueChange={(value) => setValue('status', value as 'active' | 'inactive')}>
+              <SelectTrigger id="status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter className="gap-2">

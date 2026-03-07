@@ -168,8 +168,8 @@ export default function PayrollPage() {
 
               <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                 <div className="text-sm hidden md:block">
-                  <p className="text-muted-foreground">Allowances</p>
-                  <p className="font-medium">RM {(toNumber(payrollItem.transportAllowance) + toNumber(payrollItem.mealAllowance) + toNumber(payrollItem.bonus)).toFixed(2)}</p>
+                  <p className="text-muted-foreground">Allowances & Incentives</p>
+                  <p className="font-medium">RM {(toNumber(payrollItem.allowance) + toNumber(payrollItem.incentive)).toFixed(2)}</p>
                 </div>
                 <div className="text-right min-w-[100px]">
                   <p className="text-lg font-bold text-foreground">RM {toNumber(payrollItem.totalPay).toFixed(2)}</p>
@@ -275,16 +275,12 @@ export default function PayrollPage() {
                 })()}
 
                 <div className="flex justify-between py-2">
-                  <span className="text-muted-foreground">Transport Allowance</span>
-                  <span className="font-medium">RM {toNumber(selectedPayroll.transportAllowance).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Allowance</span>
+                  <span className="font-medium">RM {toNumber(selectedPayroll.allowance).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-muted-foreground">Meal Allowance</span>
-                  <span className="font-medium">RM {toNumber(selectedPayroll.mealAllowance).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-muted-foreground">Bonus</span>
-                  <span className="font-medium">RM {toNumber(selectedPayroll.bonus).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Incentive</span>
+                  <span className="font-medium">RM {toNumber(selectedPayroll.incentive).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-3 border-t-2 border-primary/20 bg-primary/5 -mx-6 px-6 mt-4">
                   <span className="font-semibold text-lg">Total Pay</span>
