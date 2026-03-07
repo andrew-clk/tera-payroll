@@ -29,6 +29,7 @@ export default function PayrollPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
+  const [previewPayroll, setPreviewPayroll] = useState<Payroll | null>(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
@@ -55,7 +56,7 @@ export default function PayrollPage() {
   };
 
   const handlePreviewPayslip = (payrollItem: Payroll) => {
-    setSelectedPayroll(payrollItem);
+    setPreviewPayroll(payrollItem);
     setPreviewDialogOpen(true);
   };
 
@@ -317,15 +318,18 @@ export default function PayrollPage() {
       <GeneratePayrollDialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen} />
 
       {/* Payslip Preview Dialog */}
-      {selectedPayroll && (
+      {previewPayroll && (
         <PayslipPreviewDialog
           open={previewDialogOpen}
-          onOpenChange={setPreviewDialogOpen}
-          payroll={selectedPayroll}
-          partTimerName={getPartTimer(selectedPayroll.partTimerId)?.name || ''}
-          partTimerIc={getPartTimer(selectedPayroll.partTimerId)?.ic || ''}
-          partTimerBankName={getPartTimer(selectedPayroll.partTimerId)?.bankName || ''}
-          partTimerBankAccount={getPartTimer(selectedPayroll.partTimerId)?.bankAccount || ''}
+          onOpenChange={(open) => {
+            setPreviewDialogOpen(open);
+            if (!open) setPreviewPayroll(null);
+          }}
+          payroll={previewPayroll}
+          partTimerName={getPartTimer(previewPayroll.partTimerId)?.name || ''}
+          partTimerIc={getPartTimer(previewPayroll.partTimerId)?.ic || ''}
+          partTimerBankName={getPartTimer(previewPayroll.partTimerId)?.bankName || ''}
+          partTimerBankAccount={getPartTimer(previewPayroll.partTimerId)?.bankAccount || ''}
         />
       )}
     </div>
