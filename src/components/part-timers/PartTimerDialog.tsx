@@ -63,20 +63,26 @@ export function PartTimerDialog({ open, onOpenChange, partTimer }: PartTimerDial
 
   const onSubmit = async (data: PartTimerFormData) => {
     try {
+      // Remove all dashes from IC number
+      const cleanedData = {
+        ...data,
+        ic: data.ic.replace(/-/g, ''),
+      };
+
       if (isEdit && partTimer) {
         await updateMutation.mutateAsync({
           id: partTimer.id,
           data: {
-            ...data,
-            defaultRate: data.defaultRate,
+            ...cleanedData,
+            defaultRate: cleanedData.defaultRate,
           },
         });
         toast.success('Part-timer updated successfully');
       } else {
         await createMutation.mutateAsync({
           id: crypto.randomUUID(),
-          ...data,
-          defaultRate: data.defaultRate,
+          ...cleanedData,
+          defaultRate: cleanedData.defaultRate,
         });
         toast.success('Part-timer added successfully');
       }
@@ -104,8 +110,8 @@ export function PartTimerDialog({ open, onOpenChange, partTimer }: PartTimerDial
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ic">IC Number *</Label>
-            <Input id="ic" {...register('ic')} placeholder="990101-01-1234" />
+            <Label htmlFor="ic">IC/Passport Number *</Label>
+            <Input id="ic" {...register('ic')} placeholder="990101011234" />
             {errors.ic && <p className="text-sm text-destructive">{errors.ic.message}</p>}
           </div>
 

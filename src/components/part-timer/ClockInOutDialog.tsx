@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Camera, Loader2, RotateCcw } from 'lucide-react';
+import { Camera, Loader2, RotateCcw, Upload } from 'lucide-react';
 import { createAttendance, updateAttendance } from '@/db/queries';
 import { uploadImage, generateAttendancePhotoFilename } from '@/lib/imageStorage';
 import { toast } from 'sonner';
@@ -36,29 +36,49 @@ export function ClockInOutDialog({
   const [photo, setPhoto] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [useFileInput, setUseFileInput] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
       });
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
         streamRef.current = stream;
         setIsCameraActive(true);
       }
     } catch (error) {
       console.error('Camera error:', error);
-      toast.error('Failed to access camera. Please check permissions.');
+      toast.error('Camera not available. Using file upload instead.');
+      setUseFileInput(true);
     }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const stopCamera = () => {
@@ -85,8 +105,19 @@ export function ClockInOutDialog({
 
   const retakePhoto = () => {
     setPhoto('');
-    startCamera();
+    if (useFileInput) {
+      triggerFileInput();
+    } else {
+      startCamera();
+    }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   const handleSubmit = async () => {
     if (!photo) {
@@ -154,6 +185,8 @@ export function ClockInOutDialog({
   const handleClose = () => {
     stopCamera();
     setPhoto('');
+    setUseFileInput(false);
+    setIsCameraActive(false);
     onOpenChange(false);
   };
 
@@ -172,11 +205,24 @@ export function ClockInOutDialog({
           </div>
 
           <div className="relative bg-muted rounded-lg overflow-hidden aspect-video">
-            {!photo && !isCameraActive && (
-              <div className="absolute inset-0 flex items-center justify-center">
+            {!photo && !isCameraActive && !useFileInput && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <Button onClick={startCamera} className="gap-2">
                   <Camera className="w-4 h-4" />
                   Start Camera
+                </Button>
+                <Button onClick={triggerFileInput} variant="outline" className="gap-2">
+                  <Upload className="w-4 h-4" />
+                  Upload Photo
+                </Button>
+              </div>
+            )}
+
+            {!photo && useFileInput && !isCameraActive && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Button onClick={triggerFileInput} className="gap-2">
+                  <Upload className="w-4 h-4" />
+                  Select Photo
                 </Button>
               </div>
             )}
@@ -187,6 +233,7 @@ export function ClockInOutDialog({
                   ref={videoRef}
                   autoPlay
                   playsInline
+                  muted
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center">
@@ -210,6 +257,14 @@ export function ClockInOutDialog({
             )}
 
             <canvas ref={canvasRef} className="hidden" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              onChange={handleFileInput}
+              className="hidden"
+            />
           </div>
 
           <div className="text-xs text-center text-muted-foreground">

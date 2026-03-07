@@ -34,9 +34,12 @@ export default function PartTimerLogin() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
 
+    // Remove dashes from IC input to match database format
+    const cleanIc = data.ic.replace(/-/g, '');
+
     // Find part-timer by IC and contact
     const partTimer = (partTimers ?? []).find(
-      (pt) => pt.ic === data.ic && pt.contact === data.contact && pt.status === 'active'
+      (pt) => pt.ic === cleanIc && pt.contact === data.contact && pt.status === 'active'
     );
 
     if (partTimer) {
@@ -68,10 +71,10 @@ export default function PartTimerLogin() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ic">IC Number</Label>
+              <Label htmlFor="ic">IC/Passport Number</Label>
               <Input
                 id="ic"
-                placeholder="Enter your IC number"
+                placeholder="990101011234"
                 {...register('ic')}
                 disabled={isLoading}
               />
@@ -104,7 +107,7 @@ export default function PartTimerLogin() {
             </Button>
 
             <p className="text-sm text-muted-foreground text-center mt-4">
-              Use your IC number and registered contact number to login
+              Use your IC/Passport number and registered contact number to login
             </p>
           </form>
         </CardContent>
