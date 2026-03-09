@@ -122,13 +122,16 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
           setDailyAssignments(assignmentMap);
         });
 
-        // Load existing staff salaries - NOTE: Old data only had per-event salary, not per-day
-        // For backward compatibility, we'll populate all days with the same salary
+        // Load existing staff salaries after calculating event days
+        const start = parseISO(event.startDate);
+        const end = parseISO(event.endDate);
+        const days = eachDayOfInterval({ start, end });
+
         getEventStaffSalaries(event.id).then((salaries) => {
           const salaryMap: Record<string, string> = {};
           salaries.forEach((salary) => {
             // Populate salary for all days in the event
-            eventDays.forEach((day) => {
+            days.forEach((day) => {
               const dateStr = format(day, 'yyyy-MM-dd');
               salaryMap[`${salary.partTimerId}-${dateStr}`] = salary.salary;
             });
@@ -215,35 +218,46 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
         });
       }
 
-      // Create staff salaries - now using composite keys (partTimerId-dateStr)
-      // We need to aggregate salaries per part-timer across all days
-      const partTimerSalaryMap: Record<string, number[]> = {};
-
-      for (const [compositeKey, salary] of Object.entries(staffSalaries)) {
-        if (salary && parseFloat(salary) > 0) {
-          // Extract partTimerId from composite key (format: uuid-yyyy-MM-dd)
-          // Split from the end: last 10 chars are date (yyyy-MM-dd), rest is UUID
-          const lastDashIndex = compositeKey.lastIndexOf('-');
-          const secondLastDashIndex = compositeKey.lastIndexOf('-', lastDashIndex - 1);
-          const thirdLastDashIndex = compositeKey.lastIndexOf('-', secondLastDashIndex - 1);
-          const partTimerId = compositeKey.substring(0, thirdLastDashIndex);
-
-          if (!partTimerSalaryMap[partTimerId]) {
-            partTimerSalaryMap[partTimerId] = [];
-          }
-          partTimerSalaryMap[partTimerId].push(parseFloat(salary));
-        }
+      // Create staff salaries - collect all assigned part-timers across all days
+      const allAssignedPartTimers = new Set<string>();
+      for (const day of eventDays) {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const assignedPTs = dailyAssignments[dateStr] || [];
+        assignedPTs.forEach(ptId => allAssignedPartTimers.add(ptId));
       }
 
-      // Save average salary per part-timer for backward compatibility with existing schema
+      // For each assigned part-timer, aggregate their daily salaries
+      const partTimerSalaryMap: Record<string, number[]> = {};
+
+      allAssignedPartTimers.forEach(partTimerId => {
+        partTimerSalaryMap[partTimerId] = [];
+
+        // Check each day for salary entries
+        for (const day of eventDays) {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const compositeKey = `${partTimerId}-${dateStr}`;
+          const salary = staffSalaries[compositeKey];
+
+          // Only include salary if part-timer is assigned on this day
+          if (dailyAssignments[dateStr]?.includes(partTimerId)) {
+            if (salary && parseFloat(salary) > 0) {
+              partTimerSalaryMap[partTimerId].push(parseFloat(salary));
+            }
+          }
+        }
+      });
+
+      // Save average salary per part-timer (only if they have at least one salary entry)
       for (const [partTimerId, salaries] of Object.entries(partTimerSalaryMap)) {
-        const avgSalary = salaries.reduce((sum, s) => sum + s, 0) / salaries.length;
-        await createEventStaffSalary({
-          id: crypto.randomUUID(),
-          eventId,
-          partTimerId,
-          salary: avgSalary.toFixed(2),
-        });
+        if (salaries.length > 0) {
+          const avgSalary = salaries.reduce((sum, s) => sum + s, 0) / salaries.length;
+          await createEventStaffSalary({
+            id: crypto.randomUUID(),
+            eventId,
+            partTimerId,
+            salary: avgSalary.toFixed(2),
+          });
+        }
       }
 
       toast.success(isEdit ? 'Event updated successfully' : 'Event created successfully');

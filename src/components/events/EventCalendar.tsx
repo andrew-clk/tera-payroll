@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Users, MapPin, Clock, Edit } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Users, MapPin, Clock, Edit, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEvents, usePartTimers } from '@/hooks/useDatabase';
-import { getEventDailyAssignments } from '@/db/queries';
+import { getEventDailyAssignments, getEventStaffSalaries } from '@/db/queries';
 import {
   format,
   startOfMonth,
@@ -35,24 +35,33 @@ export function EventCalendar() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [eventAssignments, setEventAssignments] = useState<Record<string, EventDailyAssignment[]>>({});
+  const [eventSalaries, setEventSalaries] = useState<Record<string, Array<{ partTimerId: string; salary: string }>>>({});
 
   const { data: events, isLoading } = useEvents();
   const { data: partTimers } = usePartTimers();
 
-  // Load daily assignments for selected event
+  // Load daily assignments and salaries for events
   useEffect(() => {
     if (events) {
       Promise.all(
         events.map(async (event) => {
-          const assignments = await getEventDailyAssignments(event.id);
-          return { eventId: event.id, assignments };
+          const [assignments, salaries] = await Promise.all([
+            getEventDailyAssignments(event.id),
+            getEventStaffSalaries(event.id)
+          ]);
+          return { eventId: event.id, assignments, salaries };
         })
       ).then((results) => {
         const assignmentMap: Record<string, EventDailyAssignment[]> = {};
-        results.forEach(({ eventId, assignments }) => {
+        const salaryMap: Record<string, Array<{ partTimerId: string; salary: string }>> = {};
+
+        results.forEach(({ eventId, assignments, salaries }) => {
           assignmentMap[eventId] = assignments;
+          salaryMap[eventId] = salaries;
         });
+
         setEventAssignments(assignmentMap);
+        setEventSalaries(salaryMap);
       });
     }
   }, [events]);
@@ -278,25 +287,34 @@ export function EventCalendar() {
                     const assignments = eventAssignments[selectedEvent.id] || [];
                     const dayAssignment = assignments.find(a => a.date === dateStr);
                     const assignedIds = dayAssignment?.assignedPartTimers || [];
-                    const assignedNames = assignedIds
-                      .map(id => (partTimers ?? []).find(p => p.id === id)?.name)
-                      .filter(Boolean);
+                    const salaries = eventSalaries[selectedEvent.id] || [];
 
                     return (
                       <div key={dateStr} className="border border-border rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
                           <p className="font-medium text-sm">{format(day, 'EEEE, MMM d, yyyy')}</p>
                           <span className="text-xs text-muted-foreground">
-                            {assignedNames.length} staff
+                            {assignedIds.length} staff
                           </span>
                         </div>
-                        {assignedNames.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {assignedNames.map((name, i) => (
-                              <span key={i} className="badge-status badge-active text-xs">
-                                {name}
-                              </span>
-                            ))}
+                        {assignedIds.length > 0 ? (
+                          <div className="space-y-2">
+                            {assignedIds.map((ptId) => {
+                              const partTimer = (partTimers ?? []).find(p => p.id === ptId);
+                              const salary = salaries.find(s => s.partTimerId === ptId);
+
+                              return (
+                                <div key={ptId} className="flex items-center justify-between p-2 rounded-md bg-muted/30">
+                                  <span className="text-sm font-medium">{partTimer?.name || 'Unknown'}</span>
+                                  {salary && (
+                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <DollarSign className="w-3 h-3" />
+                                      RM {salary.salary}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">No staff assigned</p>
