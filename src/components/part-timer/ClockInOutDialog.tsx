@@ -35,12 +35,45 @@ export function ClockInOutDialog({
 }: ClockInOutDialogProps) {
   const [photo, setPhoto] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [useFileInput, setUseFileInput] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Compress image to reduce upload size
+  const compressImage = (base64: string, maxWidth = 1024, quality = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+
+        // Resize if larger than maxWidth
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.onerror = reject;
+      img.src = base64;
+    });
+  };
 
   const startCamera = async () => {
     try {
@@ -81,12 +114,20 @@ export function ClockInOutDialog({
     }
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhoto(reader.result as string);
+      reader.onloadend = async () => {
+        try {
+          const base64 = reader.result as string;
+          // Compress image before setting
+          const compressed = await compressImage(base64);
+          setPhoto(compressed);
+        } catch (error) {
+          console.error('Compression error:', error);
+          toast.error('Failed to process image');
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -104,15 +145,25 @@ export function ClockInOutDialog({
     setIsCameraActive(false);
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
       if (context) {
         canvasRef.current.width = videoRef.current.videoWidth;
         canvasRef.current.height = videoRef.current.videoHeight;
         context.drawImage(videoRef.current, 0, 0);
-        const imageData = canvasRef.current.toDataURL('image/jpeg', 0.8);
-        setPhoto(imageData);
+        const imageData = canvasRef.current.toDataURL('image/jpeg', 0.7);
+
+        try {
+          // Compress the captured image
+          const compressed = await compressImage(imageData);
+          setPhoto(compressed);
+        } catch (error) {
+          console.error('Compression error:', error);
+          // Fallback to uncompressed if compression fails
+          setPhoto(imageData);
+        }
+
         stopCamera();
       }
     }
@@ -147,6 +198,7 @@ export function ClockInOutDialog({
     }
 
     setIsSubmitting(true);
+    setUploadProgress('Preparing image...');
 
     try {
       const now = new Date();
@@ -165,12 +217,15 @@ export function ClockInOutDialog({
 
       let photoUrl: string;
       try {
+        setUploadProgress('Uploading photo...');
         photoUrl = await uploadImage(photo, filename);
         console.log('Photo uploaded successfully:', photoUrl);
+        setUploadProgress('Saving record...');
       } catch (uploadError) {
         console.error('Photo upload failed:', uploadError);
         toast.error('Failed to upload photo. Please check your internet connection.');
         setIsSubmitting(false);
+        setUploadProgress('');
         return;
       }
 
@@ -218,6 +273,7 @@ export function ClockInOutDialog({
       toast.error(`Failed to submit: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
+      setUploadProgress('');
     }
   };
 
@@ -296,6 +352,19 @@ export function ClockInOutDialog({
           <div className="text-xs text-center text-muted-foreground">
             Current time: {new Date().toLocaleTimeString()}
           </div>
+
+          {/* Upload Progress */}
+          {isSubmitting && uploadProgress && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-primary">{uploadProgress}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Please wait...</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2">
@@ -304,7 +373,7 @@ export function ClockInOutDialog({
           </Button>
           <Button onClick={handleSubmit} disabled={!photo || isSubmitting}>
             {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {actionType === 'clockIn' ? 'Clock In' : 'Clock Out'}
+            {isSubmitting ? uploadProgress || 'Processing...' : actionType === 'clockIn' ? 'Clock In' : 'Clock Out'}
           </Button>
         </DialogFooter>
       </DialogContent>
