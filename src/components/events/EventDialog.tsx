@@ -221,7 +221,13 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
 
       for (const [compositeKey, salary] of Object.entries(staffSalaries)) {
         if (salary && parseFloat(salary) > 0) {
-          const [partTimerId] = compositeKey.split('-');
+          // Extract partTimerId from composite key (format: uuid-yyyy-MM-dd)
+          // Split from the end: last 10 chars are date (yyyy-MM-dd), rest is UUID
+          const lastDashIndex = compositeKey.lastIndexOf('-');
+          const secondLastDashIndex = compositeKey.lastIndexOf('-', lastDashIndex - 1);
+          const thirdLastDashIndex = compositeKey.lastIndexOf('-', secondLastDashIndex - 1);
+          const partTimerId = compositeKey.substring(0, thirdLastDashIndex);
+
           if (!partTimerSalaryMap[partTimerId]) {
             partTimerSalaryMap[partTimerId] = [];
           }
