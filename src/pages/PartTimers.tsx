@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, MoreVertical, Phone, Building2, CreditCard, Loader2, LogIn } from 'lucide-react';
+import { Plus, Search, MoreVertical, Phone, Building2, CreditCard, Loader2, LogIn, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +45,7 @@ export default function PartTimers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartTimer, setSelectedPartTimer] = useState<PartTimer | null>(null);
   const [editingPartTimer, setEditingPartTimer] = useState<PartTimer | null>(null);
+  const [deactivatingPartTimer, setDeactivatingPartTimer] = useState<PartTimer | null>(null);
   const [deletingPartTimer, setDeletingPartTimer] = useState<PartTimer | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { data: partTimers, isLoading } = usePartTimers();
@@ -64,19 +65,27 @@ export default function PartTimers() {
         data: { status: 'inactive' },
       });
       toast.success('Part-timer deactivated');
-      setDeletingPartTimer(null);
+      setDeactivatingPartTimer(null);
     } catch (error) {
       toast.error('Failed to deactivate part-timer');
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (partTimer: PartTimer) => {
     try {
-      await deleteMutation.mutateAsync(id);
-      toast.success('Part-timer deleted');
+      await deleteMutation.mutateAsync(partTimer.id);
+      toast.success('Part-timer deleted successfully');
       setDeletingPartTimer(null);
     } catch (error) {
-      toast.error('Failed to delete part-timer');
+      console.error('Delete error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Check if error is due to foreign key constraint
+      if (errorMessage.includes('foreign key') || errorMessage.includes('constraint') || errorMessage.includes('violates')) {
+        toast.error('Cannot delete: Part-timer has existing attendance or payroll records. Please use "Deactivate" instead.');
+      } else {
+        toast.error('Failed to delete part-timer');
+      }
     }
   };
 
@@ -177,10 +186,17 @@ export default function PartTimers() {
                         Part-Timer Login
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        className="text-warning"
+                        onClick={() => setDeactivatingPartTimer(partTimer)}
+                      >
+                        Deactivate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         className="text-destructive"
                         onClick={() => setDeletingPartTimer(partTimer)}
                       >
-                        Deactivate
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -225,10 +241,17 @@ export default function PartTimers() {
                     Part-Timer Login
                   </DropdownMenuItem>
                   <DropdownMenuItem
+                    className="text-warning"
+                    onClick={() => setDeactivatingPartTimer(partTimer)}
+                  >
+                    Deactivate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => setDeletingPartTimer(partTimer)}
                   >
-                    Deactivate
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -327,22 +350,52 @@ export default function PartTimers() {
         partTimer={editingPartTimer}
       />
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deletingPartTimer} onOpenChange={() => setDeletingPartTimer(null)}>
+      {/* Deactivate Confirmation */}
+      <AlertDialog open={!!deactivatingPartTimer} onOpenChange={() => setDeactivatingPartTimer(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate Part-Timer</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to deactivate {deletingPartTimer?.name}? They will be marked as inactive but their records will be preserved.
+              Are you sure you want to deactivate {deactivatingPartTimer?.name}? They will be marked as inactive but their records will be preserved. You can reactivate them later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deletingPartTimer && handleDeactivate(deletingPartTimer)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deactivatingPartTimer && handleDeactivate(deactivatingPartTimer)}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
             >
               Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingPartTimer} onOpenChange={() => setDeletingPartTimer(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Part-Timer Permanently</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Are you sure you want to permanently delete <strong>{deletingPartTimer?.name}</strong>?</p>
+              <p className="text-destructive font-medium">⚠️ This action cannot be undone!</p>
+              <p>The part-timer's profile will be removed, but:</p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li>All payroll records will be preserved</li>
+                <li>Attendance history will remain intact</li>
+                <li>Past event assignments will be maintained</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">Tip: Consider using "Deactivate" instead if you want to keep the profile but mark them as inactive.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingPartTimer && handleDelete(deletingPartTimer)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
