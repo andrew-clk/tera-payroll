@@ -122,11 +122,16 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
           setDailyAssignments(assignmentMap);
         });
 
-        // Load existing staff salaries
+        // Load existing staff salaries - NOTE: Old data only had per-event salary, not per-day
+        // For backward compatibility, we'll populate all days with the same salary
         getEventStaffSalaries(event.id).then((salaries) => {
           const salaryMap: Record<string, string> = {};
           salaries.forEach((salary) => {
-            salaryMap[salary.partTimerId] = salary.salary;
+            // Populate salary for all days in the event
+            eventDays.forEach((day) => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              salaryMap[`${salary.partTimerId}-${dateStr}`] = salary.salary;
+            });
           });
           setStaffSalaries(salaryMap);
         });
@@ -210,16 +215,29 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
         });
       }
 
-      // Create staff salaries
-      for (const [partTimerId, salary] of Object.entries(staffSalaries)) {
+      // Create staff salaries - now using composite keys (partTimerId-dateStr)
+      // We need to aggregate salaries per part-timer across all days
+      const partTimerSalaryMap: Record<string, number[]> = {};
+
+      for (const [compositeKey, salary] of Object.entries(staffSalaries)) {
         if (salary && parseFloat(salary) > 0) {
-          await createEventStaffSalary({
-            id: crypto.randomUUID(),
-            eventId,
-            partTimerId,
-            salary,
-          });
+          const [partTimerId] = compositeKey.split('-');
+          if (!partTimerSalaryMap[partTimerId]) {
+            partTimerSalaryMap[partTimerId] = [];
+          }
+          partTimerSalaryMap[partTimerId].push(parseFloat(salary));
         }
+      }
+
+      // Save average salary per part-timer for backward compatibility with existing schema
+      for (const [partTimerId, salaries] of Object.entries(partTimerSalaryMap)) {
+        const avgSalary = salaries.reduce((sum, s) => sum + s, 0) / salaries.length;
+        await createEventStaffSalary({
+          id: crypto.randomUUID(),
+          eventId,
+          partTimerId,
+          salary: avgSalary.toFixed(2),
+        });
       }
 
       toast.success(isEdit ? 'Event updated successfully' : 'Event created successfully');
@@ -364,19 +382,19 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
                                 </label>
                                 {dailyAssignments[dateStr]?.includes(partTimer.id) && (
                                   <div className="flex items-center gap-2">
-                                    <Label htmlFor={`salary-${partTimer.id}`} className="text-xs whitespace-nowrap">
+                                    <Label htmlFor={`salary-${partTimer.id}-${dateStr}`} className="text-xs whitespace-nowrap">
                                       Event Salary (RM):
                                     </Label>
                                     <Input
-                                      id={`salary-${partTimer.id}`}
+                                      id={`salary-${partTimer.id}-${dateStr}`}
                                       type="number"
                                       step="0.01"
                                       min="0"
                                       placeholder="0.00"
-                                      value={staffSalaries[partTimer.id] || ''}
+                                      value={staffSalaries[`${partTimer.id}-${dateStr}`] || ''}
                                       onChange={(e) => setStaffSalaries(prev => ({
                                         ...prev,
-                                        [partTimer.id]: e.target.value
+                                        [`${partTimer.id}-${dateStr}`]: e.target.value
                                       }))}
                                       className="h-8 text-sm"
                                     />
