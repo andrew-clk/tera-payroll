@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { TrendingUp, Users, Calendar, Clock, Loader2 } from 'lucide-react';
-import { usePayroll, usePartTimers, useEvents, useAttendance } from '@/hooks/useDatabase';
+import { usePayroll, usePartTimers, useEvents, useAttendance, useEventStaffSalaries } from '@/hooks/useDatabase';
 import { toNumber } from '@/types';
 import {
   BarChart,
@@ -23,8 +23,9 @@ export default function Reports() {
   const { data: partTimers, isLoading: loadingPartTimers } = usePartTimers();
   const { data: events, isLoading: loadingEvents } = useEvents();
   const { data: attendance, isLoading: loadingAttendance } = useAttendance();
+  const { data: staffSalaries, isLoading: loadingStaffSalaries } = useEventStaffSalaries();
 
-  const isLoading = loadingPayroll || loadingPartTimers || loadingEvents || loadingAttendance;
+  const isLoading = loadingPayroll || loadingPartTimers || loadingEvents || loadingAttendance || loadingStaffSalaries;
 
   const totalPayroll = useMemo(() =>
     (payroll ?? []).reduce((sum, p) => sum + toNumber(p.totalPay), 0),
@@ -277,19 +278,17 @@ export default function Reports() {
               </thead>
               <tbody>
                 {(events ?? []).map(event => {
-                  const eventAtt = (attendance ?? []).filter(a => a.eventId === event.id);
-                  const completedShifts = eventAtt.filter(a => a.status === 'completed').length;
+                  const eventAtt = (attendance ?? []).filter(a => a.eventId === event.id && a.status === 'completed');
+                  const completedShifts = eventAtt.length;
                   const hours = eventAtt.reduce((sum, a) => sum + toNumber(a.hoursWorked), 0);
 
-                  let pay = 0;
-                  (payroll ?? []).forEach(p => {
-                    if (!p.eventBreakdown) return;
-                    try {
-                      const breakdown = JSON.parse(p.eventBreakdown);
-                      const item = breakdown.find((b: any) => b.eventId === event.id);
-                      if (item) pay += toNumber(item.salary);
-                    } catch {}
-                  });
+                  // Compute pay from attendance × hourly rate per part-timer
+                  const pay = eventAtt.reduce((sum, a) => {
+                    const rate = (staffSalaries ?? []).find(
+                      s => s.eventId === event.id && s.partTimerId === a.partTimerId
+                    );
+                    return sum + toNumber(a.hoursWorked) * toNumber(rate?.salary);
+                  }, 0);
 
                   if (completedShifts === 0 && hours === 0 && pay === 0) return null;
 
