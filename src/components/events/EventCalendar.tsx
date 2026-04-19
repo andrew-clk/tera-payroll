@@ -68,8 +68,8 @@ export function EventCalendar() {
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
   const rows: Date[][] = [];
   let days: Date[] = [];
@@ -144,7 +144,7 @@ export function EventCalendar() {
 
         {/* Days of week */}
         <div className="grid grid-cols-7 border-b border-border">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
             <div key={day} className="px-2 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">
               {day}
             </div>
