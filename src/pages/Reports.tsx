@@ -1,41 +1,59 @@
 import { Download, FileSpreadsheet, FileText, TrendingUp, Users, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { mockPayroll, mockPartTimers, mockEvents, mockAttendance } from '@/data/mockData';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import { usePayroll, usePartTimers, useEvents } from '@/hooks/useDatabase';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
 } from 'recharts';
-
-const payrollByPartTimer = mockPartTimers.map(pt => {
-  const payrolls = mockPayroll.filter(p => p.partTimerId === pt.id);
-  return {
-    name: pt.name.split(' ')[0],
-    total: payrolls.reduce((sum, p) => sum + p.totalPay, 0),
-  };
-}).filter(p => p.total > 0);
-
-const payrollByType = [
-  { name: 'Base Pay', value: mockPayroll.reduce((sum, p) => sum + (p.totalHours * p.rate), 0) },
-  { name: 'Transport', value: mockPayroll.reduce((sum, p) => sum + p.transportAllowance, 0) },
-  { name: 'Meals', value: mockPayroll.reduce((sum, p) => sum + p.mealAllowance, 0) },
-  { name: 'Bonus', value: mockPayroll.reduce((sum, p) => sum + p.bonus, 0) },
-];
 
 const COLORS = ['hsl(234, 89%, 58%)', 'hsl(142, 76%, 36%)', 'hsl(38, 92%, 50%)', 'hsl(199, 89%, 48%)'];
 
 export default function Reports() {
-  const totalPayroll = mockPayroll.reduce((sum, p) => sum + p.totalPay, 0);
-  const totalHours = mockPayroll.reduce((sum, p) => sum + p.totalHours, 0);
-  const avgHourlyRate = totalPayroll / totalHours;
+  const { data: payrollData = [], isLoading: payrollLoading } = usePayroll();
+  const { data: partTimers = [], isLoading: partTimersLoading } = usePartTimers();
+  const { data: events = [], isLoading: eventsLoading } = useEvents();
+
+  const isLoading = payrollLoading || partTimersLoading || eventsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+          <p className="mt-4 text-muted-foreground">Loading reports...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalPayroll = payrollData.reduce((sum, p) => sum + parseFloat(p.totalPay), 0);
+  const totalHours = payrollData.reduce((sum, p) => sum + parseFloat(String(p.totalHours)), 0);
+  const avgHourlyRate = totalHours > 0 ? totalPayroll / totalHours : 0;
+
+  const payrollByPartTimer = partTimers
+    .map(pt => {
+      const total = payrollData
+        .filter(p => p.partTimerId === pt.id)
+        .reduce((sum, p) => sum + parseFloat(p.totalPay), 0);
+      return { name: pt.name.split(' ')[0], total };
+    })
+    .filter(p => p.total > 0);
+
+  const payrollByType = [
+    { name: 'Base Pay', value: payrollData.reduce((sum, p) => sum + parseFloat(String(p.totalHours)) * parseFloat(String(p.rate)), 0) },
+    { name: 'Transport', value: payrollData.reduce((sum, p) => sum + parseFloat(String(p.transportAllowance || 0)), 0) },
+    { name: 'Meals', value: payrollData.reduce((sum, p) => sum + parseFloat(String(p.mealAllowance || 0)), 0) },
+    { name: 'Bonus', value: payrollData.reduce((sum, p) => sum + parseFloat(String(p.bonus || 0)), 0) },
+  ].filter(item => item.value > 0);
 
   return (
     <div className="space-y-6">
@@ -84,7 +102,7 @@ export default function Reports() {
             </div>
             <span className="text-sm text-muted-foreground">Events Covered</span>
           </div>
-          <p className="text-2xl font-bold">{mockEvents.length}</p>
+          <p className="text-2xl font-bold">{events.length}</p>
         </div>
         <div className="bg-card rounded-xl border border-border p-5">
           <div className="flex items-center gap-3 mb-3">
@@ -99,64 +117,50 @@ export default function Reports() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Payroll by Part-Timer */}
         <div className="bg-card rounded-xl border border-border p-6">
           <h3 className="text-lg font-semibold text-foreground mb-4">Payroll by Part-Timer</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={payrollByPartTimer} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `RM${value}`} />
-                <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                  formatter={(value: number) => [`RM ${value.toFixed(2)}`, 'Total Pay']}
-                />
-                <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {payrollByPartTimer.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">No payroll data yet</div>
+          ) : (
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={payrollByPartTimer} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `RM${v}`} />
+                  <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '14px' }}
+                    formatter={(value: number) => [`RM ${value.toFixed(2)}`, 'Total Pay']}
+                  />
+                  <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
-        {/* Payroll Breakdown */}
         <div className="bg-card rounded-xl border border-border p-6">
           <h3 className="text-lg font-semibold text-foreground mb-4">Payroll Breakdown</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={payrollByType}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {payrollByType.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                  formatter={(value: number) => [`RM ${value.toFixed(2)}`, '']}
-                />
-                <Legend 
-                  formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          {payrollByType.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">No payroll data yet</div>
+          ) : (
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={payrollByType} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
+                    {payrollByType.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '14px' }}
+                    formatter={(value: number) => [`RM ${value.toFixed(2)}`, '']}
+                  />
+                  <Legend formatter={(value) => <span className="text-sm text-foreground">{value}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
@@ -169,7 +173,7 @@ export default function Reports() {
             { title: 'Part-Timer Hours Report', desc: 'Hours worked by each part-timer', icon: Users },
             { title: 'Event Attendance Report', desc: 'Attendance records for all events', icon: Calendar },
           ].map((report, index) => (
-            <div 
+            <div
               key={index}
               className="flex items-start gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer group"
             >
