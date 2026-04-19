@@ -102,15 +102,27 @@ export function generatePayslipPDF(
 
   // Event breakdown table
   if (eventBreakdown.length > 0) {
-    const eventTableData = eventBreakdown.map((item) => [
-      item.eventName,
-      `${item.daysWorked} ${item.daysWorked === 1 ? 'day' : 'days'}`,
-      `RM ${item.salary.toFixed(2)}`,
-    ]);
+    const hasHourlyData = eventBreakdown.some(item => item.hoursWorked != null);
+    const eventTableData = eventBreakdown.map((item) => hasHourlyData
+      ? [
+          item.eventName,
+          `${Number(item.hoursWorked ?? 0).toFixed(2)} hrs`,
+          `RM ${Number(item.hourlyRate ?? 0).toFixed(2)}/hr`,
+          `RM ${item.salary.toFixed(2)}`,
+        ]
+      : [
+          item.eventName,
+          `${item.daysWorked} ${item.daysWorked === 1 ? 'day' : 'days'}`,
+          `RM ${item.salary.toFixed(2)}`,
+        ]
+    );
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Event Name', 'Days Worked', 'Amount']],
+      head: [hasHourlyData
+        ? ['Event Name', 'Hours Worked', 'Rate', 'Amount']
+        : ['Event Name', 'Days Worked', 'Amount']
+      ],
       body: eventTableData,
       theme: 'striped',
       headStyles: {
@@ -121,11 +133,9 @@ export function generatePayslipPDF(
       styles: {
         fontSize: 9,
       },
-      columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: 40, halign: 'center' },
-        2: { cellWidth: 40, halign: 'right' },
-      },
+      columnStyles: hasHourlyData
+        ? { 0: { cellWidth: 65 }, 1: { cellWidth: 35, halign: 'center' }, 2: { cellWidth: 35, halign: 'center' }, 3: { cellWidth: 35, halign: 'right' } }
+        : { 0: { cellWidth: 80 }, 1: { cellWidth: 40, halign: 'center' }, 2: { cellWidth: 40, halign: 'right' } },
       margin: { left: 20, right: 20 },
     });
 

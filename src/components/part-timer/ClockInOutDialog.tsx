@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Camera, Loader2, RotateCcw, Upload } from 'lucide-react';
 import { createAttendance, updateAttendance } from '@/db/queries';
 import { uploadImage, generateAttendancePhotoFilename } from '@/lib/imageStorage';
+import { roundToNearestHalfHour } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface JobAssignment {
@@ -252,7 +253,8 @@ export function ClockInOutDialog({
 
         console.log('Updating attendance record...');
         const clockIn = new Date(job.attendance.clockIn);
-        const hoursWorked = ((now.getTime() - clockIn.getTime()) / (1000 * 60 * 60)).toFixed(2);
+        const rawHours = (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+        const hoursWorked = roundToNearestHalfHour(rawHours).toFixed(2);
 
         await updateAttendance(job.attendance.id, {
           clockOut: now,

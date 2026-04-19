@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import type { Attendance } from '@/types';
 import { format } from 'date-fns';
+import { useEffect } from 'react';
+import { roundToNearestHalfHour } from '@/lib/utils';
 
 const attendanceSchema = z.object({
   partTimerId: z.string().min(1, 'Part-timer is required'),
@@ -57,6 +59,17 @@ export function AttendanceDialog({ open, onOpenChange, attendance, mode = 'clock
         },
   });
 
+  useEffect(() => {
+    if (attendance) {
+      reset({
+        partTimerId: attendance.partTimerId,
+        eventId: attendance.eventId,
+        clockIn: attendance.clockIn,
+        clockOut: attendance.clockOut || format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      });
+    }
+  }, [attendance]);
+
   const partTimerId = watch('partTimerId');
   const eventId = watch('eventId');
   const clockIn = watch('clockIn');
@@ -66,8 +79,8 @@ export function AttendanceDialog({ open, onOpenChange, attendance, mode = 'clock
     if (!start || !end) return 0;
     const startDate = new Date(start);
     const endDate = new Date(end);
-    const diff = endDate.getTime() - startDate.getTime();
-    return Math.max(0, diff / (1000 * 60 * 60)); // Convert to hours
+    const rawHours = Math.max(0, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+    return roundToNearestHalfHour(rawHours);
   };
 
   const hoursWorked = clockIn && clockOut ? calculateHours(clockIn, clockOut) : 0;

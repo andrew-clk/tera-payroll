@@ -7,8 +7,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { id, eventId } = req.query as { id?: string; eventId?: string };
   try {
     if (req.method === 'GET') {
-      if (!eventId) return res.status(400).json({ error: 'eventId required' });
-      return res.status(200).json(await db.select().from(schema.eventStaffSalaries).where(eq(schema.eventStaffSalaries.eventId, eventId)));
+      if (eventId) return res.status(200).json(await db.select().from(schema.eventStaffSalaries).where(eq(schema.eventStaffSalaries.eventId, eventId)));
+      return res.status(200).json(await db.select().from(schema.eventStaffSalaries));
     }
     if (req.method === 'POST') {
       const result = await db.insert(schema.eventStaffSalaries).values(req.body).returning();

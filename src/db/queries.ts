@@ -30,6 +30,7 @@ export const updateEventDailyAssignment = (id: string, data: Partial<NewEventDai
 export const deleteEventDailyAssignments = (eventId: string) => api(`/api/event-daily-assignments?eventId=${eventId}`, { method: 'DELETE' });
 
 // Event Staff Salaries
+export const getAllEventStaffSalaries = () => api('/api/event-staff-salaries');
 export const getEventStaffSalaries = (eventId: string) => api(`/api/event-staff-salaries?eventId=${eventId}`);
 export const createEventStaffSalary = (data: NewEventStaffSalary) => api('/api/event-staff-salaries', { method: 'POST', body: JSON.stringify(data) });
 export const updateEventStaffSalary = (id: string, data: Partial<NewEventStaffSalary>) => api(`/api/event-staff-salaries?id=${id}`, { method: 'PUT', body: JSON.stringify(data) });
@@ -44,6 +45,8 @@ export const getAttendanceByPartTimerAndEvent = (partTimerId: string, eventId: s
 export const createAttendance = (data: NewAttendance) => api('/api/attendance', { method: 'POST', body: JSON.stringify(data) });
 export const updateAttendance = (id: string, data: Partial<NewAttendance>) => api(`/api/attendance?id=${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteAttendance = (id: string) => api(`/api/attendance?id=${id}`, { method: 'DELETE' });
+
+export const deleteAttendanceByEvent = (eventId: string) => api(`/api/attendance?eventId=${eventId}`, { method: 'DELETE' });
 
 // Payroll
 export const getAllPayroll = () => api('/api/payroll');

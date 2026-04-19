@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Clock, CheckCircle2, AlertCircle, Camera, Loader2, Plus, Image, Edit, Calendar, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAttendance, usePartTimers, useEvents, useUpdateAttendance, useEventDailyAssignments } from '@/hooks/useDatabase';
+import { useAttendance, usePartTimers, useEvents, useUpdateAttendance, useEventDailyAssignments, useEventStaffSalaries } from '@/hooks/useDatabase';
 import { AttendanceDialog } from '@/components/attendance/AttendanceDialog';
 import { PhotoViewerDialog } from '@/components/attendance/PhotoViewerDialog';
 import { format, parseISO, isToday, isFuture, isPast, eachDayOfInterval } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, roundToNearestHalfHour } from '@/lib/utils';
 import { toNumber } from '@/types';
 import type { Attendance as AttendanceType } from '@/types';
 import {
@@ -37,25 +37,51 @@ function EditClockInDialog({ attendance, onClose, partTimerName, eventName }: Ed
   const [clockInTime, setClockInTime] = useState(
     attendance?.clockIn ? format(new Date(attendance.clockIn), 'HH:mm') : ''
   );
+  const [clockOutTime, setClockOutTime] = useState(
+    attendance?.clockOut ? format(new Date(attendance.clockOut), 'HH:mm') : ''
+  );
   const updateMutation = useUpdateAttendance();
+
+  useEffect(() => {
+    setClockInTime(attendance?.clockIn ? format(new Date(attendance.clockIn), 'HH:mm') : '');
+    setClockOutTime(attendance?.clockOut ? format(new Date(attendance.clockOut), 'HH:mm') : '');
+  }, [attendance]);
 
   const handleSave = async () => {
     if (!attendance || !clockInTime) return;
 
     try {
-      const [hours, minutes] = clockInTime.split(':');
+      const [inHours, inMinutes] = clockInTime.split(':');
       const newClockIn = new Date(attendance.clockIn || new Date());
-      newClockIn.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      newClockIn.setHours(parseInt(inHours), parseInt(inMinutes), 0, 0);
+
+      let newClockOut: Date | null = null;
+      if (clockOutTime) {
+        const [outHours, outMinutes] = clockOutTime.split(':');
+        const base = attendance.clockOut ? new Date(attendance.clockOut) : new Date(attendance.clockIn || new Date());
+        newClockOut = new Date(base);
+        newClockOut.setHours(parseInt(outHours), parseInt(outMinutes), 0, 0);
+      }
+
+      const hoursWorked = newClockOut
+        ? roundToNearestHalfHour(Math.max(0, (newClockOut.getTime() - newClockIn.getTime()) / (1000 * 60 * 60)))
+        : null;
 
       await updateMutation.mutateAsync({
         id: attendance.id,
-        data: { clockIn: newClockIn.toISOString() }
+        data: {
+          clockIn: newClockIn,
+          ...(newClockOut && { clockOut: newClockOut }),
+          ...(hoursWorked !== null && { hoursWorked: hoursWorked.toFixed(2) }),
+          status: newClockOut ? 'completed' : attendance.status,
+        }
       });
 
-      toast.success('Clock-in time updated');
+      toast.success('Attendance times updated');
       onClose();
     } catch (error) {
-      toast.error('Failed to update clock-in time');
+      console.error('Failed to update attendance times:', error);
+      toast.error('Failed to update attendance times');
     }
   };
 
@@ -63,7 +89,7 @@ function EditClockInDialog({ attendance, onClose, partTimerName, eventName }: Ed
     <Dialog open={!!attendance} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Clock-In Time</DialogTitle>
+          <DialogTitle>Edit Attendance Times</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -82,10 +108,18 @@ function EditClockInDialog({ attendance, onClose, partTimerName, eventName }: Ed
               onChange={(e) => setClockInTime(e.target.value)}
             />
           </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-1 block">Clock-Out Time</label>
+            <Input
+              type="time"
+              value={clockOutTime}
+              onChange={(e) => setClockOutTime(e.target.value)}
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button onClick={handleSave} disabled={updateMutation.isPending}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -178,6 +212,14 @@ export default function Attendance() {
   const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
   const { data: events, isLoading: isLoadingEvents } = useEvents();
   const { data: dailyAssignments, isLoading: isLoadingAssignments } = useEventDailyAssignments();
+  const { data: eventStaffSalaries } = useEventStaffSalaries();
+
+  const getHourlyRate = (partTimerId: string, eventId: string): number => {
+    const entry = (eventStaffSalaries ?? []).find(
+      s => s.partTimerId === partTimerId && s.eventId === eventId
+    );
+    return entry ? parseFloat(entry.salary) : 0;
+  };
 
   const getPartTimerName = (id: string) => (partTimers ?? []).find(p => p.id === id)?.name || 'Unknown';
   const getEventName = (id: string) => (events ?? []).find(e => e.id === id)?.name || 'Unknown';
@@ -321,6 +363,14 @@ export default function Attendance() {
               <p className="text-muted-foreground">Hours</p>
               <p className="font-medium">{attendanceRecord.hoursWorked ? toNumber(attendanceRecord.hoursWorked).toFixed(2) : '-'}</p>
             </div>
+            {attendanceRecord.hoursWorked && toNumber(attendanceRecord.hoursWorked) > 0 && (
+              <div className="text-sm">
+                <p className="text-muted-foreground">Pay</p>
+                <p className="font-medium text-primary">
+                  RM {(toNumber(attendanceRecord.hoursWorked) * getHourlyRate(attendanceRecord.partTimerId, attendanceRecord.eventId)).toFixed(2)}
+                </p>
+              </div>
+            )}
             <div className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
               statusConfig[attendanceRecord.status].color

@@ -107,15 +107,32 @@ export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDia
 
         if (daysWorked === 0) continue;
 
-        // Get the salary for this part-timer for this event
+        // Get the hourly rate for this part-timer for this event
         const staffSalaries = await getEventStaffSalaries(event.id);
         const staffSalary = staffSalaries.find(s => s.partTimerId === selectedPartTimerId);
 
         if (staffSalary) {
-          const salary = parseFloat(staffSalary.salary);
+          const hourlyRate = parseFloat(staffSalary.salary);
+
+          // Sum hours from attendance records in the date range for this event
+          const eventAttendances = (attendance ?? []).filter(a =>
+            a.partTimerId === selectedPartTimerId &&
+            a.eventId === event.id &&
+            a.date >= dateRangeStart &&
+            a.date <= dateRangeEnd &&
+            a.hoursWorked
+          );
+          const totalHoursForEvent = eventAttendances.reduce(
+            (sum, a) => sum + parseFloat(String(a.hoursWorked || 0)),
+            0
+          );
+          const salary = totalHoursForEvent * hourlyRate;
+
           breakdown.push({
             eventId: event.id,
             eventName: event.name,
+            hourlyRate,
+            hoursWorked: totalHoursForEvent,
             salary,
             daysWorked,
           });
@@ -225,7 +242,9 @@ export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDia
                 <div key={item.eventId} className="flex justify-between text-sm">
                   <div>
                     <span className="font-medium">{item.eventName}</span>
-                    <span className="text-muted-foreground ml-2">({item.daysWorked} {item.daysWorked === 1 ? 'day' : 'days'})</span>
+                    <span className="text-muted-foreground ml-2">
+                      {item.hoursWorked.toFixed(2)}h × RM {item.hourlyRate.toFixed(2)}/hr
+                    </span>
                   </div>
                   <span className="font-medium">RM {item.salary.toFixed(2)}</span>
                 </div>

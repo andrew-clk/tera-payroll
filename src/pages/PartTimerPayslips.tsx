@@ -187,7 +187,12 @@ export default function PartTimerPayslips() {
                                 <p className="font-medium text-foreground">Events:</p>
                                 {eventBreakdown.map((event, idx) => (
                                   <div key={idx} className="text-sm flex justify-between">
-                                    <span>{event.eventName} ({event.daysWorked} {event.daysWorked === 1 ? 'day' : 'days'})</span>
+                                    <span>
+                                      {event.eventName}
+                                      {event.hoursWorked != null
+                                        ? ` — ${Number(event.hoursWorked).toFixed(2)}h × RM ${Number(event.hourlyRate ?? 0).toFixed(2)}/hr`
+                                        : ` (${event.daysWorked} ${event.daysWorked === 1 ? 'day' : 'days'})`}
+                                    </span>
                                     <span className="font-medium">RM {event.salary.toFixed(2)}</span>
                                   </div>
                                 ))}

@@ -33,6 +33,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(result[0]);
     }
     if (req.method === 'DELETE') {
+      if (eventId) {
+        await db.delete(schema.attendance).where(eq(schema.attendance.eventId, eventId));
+        return res.status(200).json({ success: true });
+      }
       if (!id) return res.status(400).json({ error: 'id required' });
       await db.delete(schema.attendance).where(eq(schema.attendance.id, id));
       return res.status(200).json({ success: true });

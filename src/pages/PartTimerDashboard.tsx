@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, LogOut, Calendar, MapPin, Clock, Camera } from 'lucide-react';
 import { useEvents } from '@/hooks/useDatabase';
-import { getEventDailyAssignments, getAttendanceByPartTimerAndEvent, createAttendance, updateAttendance } from '@/db/queries';
+import { getEventDailyAssignments, getAttendanceByPartTimerAndEvent, getEventStaffSalaries, createAttendance, updateAttendance } from '@/db/queries';
 import { format, parseISO, isSameDay, isPast, isFuture, isToday } from 'date-fns';
 import { toast } from 'sonner';
 import { ClockInOutDialog } from '@/components/part-timer/ClockInOutDialog';
@@ -17,6 +17,7 @@ interface JobAssignment {
   startTime: string;
   endTime: string;
   location?: string;
+  hourlyRate: number;
   attendance?: Attendance;
 }
 
@@ -54,12 +55,17 @@ export default function PartTimerDashboard() {
       const assignments: JobAssignment[] = [];
 
       for (const event of events) {
-        const dailyAssignments = await getEventDailyAssignments(event.id);
+        const [dailyAssignments, staffSalaries, attendanceRecords] = await Promise.all([
+          getEventDailyAssignments(event.id),
+          getEventStaffSalaries(event.id),
+          getAttendanceByPartTimerAndEvent(partTimerId, event.id),
+        ]);
+
+        const staffSalary = staffSalaries.find(s => s.partTimerId === partTimerId);
+        const hourlyRate = staffSalary ? parseFloat(staffSalary.salary) : 0;
 
         for (const assignment of dailyAssignments) {
           if (assignment.assignedPartTimers.includes(partTimerId)) {
-            // Check if there's attendance for this date
-            const attendanceRecords = await getAttendanceByPartTimerAndEvent(partTimerId, event.id);
             const attendance = attendanceRecords.find(a => a.date === assignment.date);
 
             assignments.push({
@@ -69,6 +75,7 @@ export default function PartTimerDashboard() {
               startTime: event.startTime,
               endTime: event.endTime,
               location: event.location,
+              hourlyRate,
               attendance,
             });
           }
@@ -225,8 +232,16 @@ export default function PartTimerDashboard() {
                           </Button>
                         )}
                         {job.attendance?.clockIn && job.attendance?.clockOut && (
-                          <div className="text-sm text-muted-foreground">
-                            Worked: {job.attendance.hoursWorked} hours
+                          <div className="text-sm text-muted-foreground space-y-0.5">
+                            <div>Worked: {Number(job.attendance.hoursWorked || 0).toFixed(2)} hours</div>
+                            {job.hourlyRate > 0 && (
+                              <div className="font-medium text-primary">
+                                Earned: RM {(Number(job.attendance.hoursWorked || 0) * job.hourlyRate).toFixed(2)}
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  ({Number(job.attendance.hoursWorked || 0).toFixed(2)}h × RM {job.hourlyRate.toFixed(2)}/hr)
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

@@ -13,12 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCreateEvent, useUpdateEvent, usePartTimers } from '@/hooks/useDatabase';
+import { useCreateEvent, useUpdateEvent, useDeleteEvent, usePartTimers } from '@/hooks/useDatabase';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Loader2, CalendarDays } from 'lucide-react';
+import { Loader2, CalendarDays, Trash2 } from 'lucide-react';
 import type { Event } from '@/types';
 import { format, eachDayOfInterval, parseISO } from 'date-fns';
-import { createEventDailyAssignment, getEventDailyAssignments, deleteEventDailyAssignments, getEventStaffSalaries, createEventStaffSalary, deleteEventStaffSalaries } from '@/db/queries';
+import { createEventDailyAssignment, getEventDailyAssignments, deleteEventDailyAssignments, getEventStaffSalaries, createEventStaffSalary, deleteEventStaffSalaries, deleteAttendanceByEvent } from '@/db/queries';
 import { useState, useEffect } from 'react';
 
 // Generate time slots in 30-minute intervals
@@ -62,9 +63,27 @@ interface EventDialogProps {
 
 export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDialogProps) {
   const isEdit = !!event;
+  const queryClient = useQueryClient();
   const createMutation = useCreateEvent();
   const updateMutation = useUpdateEvent();
+  const deleteMutation = useDeleteEvent();
   const { data: partTimers } = usePartTimers();
+
+  const handleDelete = async () => {
+    if (!event) return;
+    if (!window.confirm(`Delete "${event.name}"? This will also remove all assignments, attendance records, and staff salaries for this event.`)) return;
+    try {
+      await deleteAttendanceByEvent(event.id);
+      await deleteEventDailyAssignments(event.id);
+      await deleteEventStaffSalaries(event.id);
+      await deleteMutation.mutateAsync(event.id);
+      toast.success('Event deleted');
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Failed to delete event:', err);
+      toast.error('Failed to delete event');
+    }
+  };
   const [dailyAssignments, setDailyAssignments] = useState<Record<string, string[]>>({});
   const [staffSalaries, setStaffSalaries] = useState<Record<string, string>>({});
   const [eventDays, setEventDays] = useState<Date[]>([]);
@@ -177,6 +196,13 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
       if (current.includes(partTimerId)) {
         return { ...prev, [date]: current.filter((id) => id !== partTimerId) };
       } else {
+        setStaffSalaries((prevSalaries) => {
+          const key = `${partTimerId}-${date}`;
+          if (!prevSalaries[key]) {
+            return { ...prevSalaries, [key]: '12.50' };
+          }
+          return prevSalaries;
+        });
         return { ...prev, [date]: [...current, partTimerId] };
       }
     });
@@ -260,6 +286,8 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
         }
       }
 
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       toast.success(isEdit ? 'Event updated successfully' : 'Event created successfully');
       reset();
       setDailyAssignments({});
@@ -403,15 +431,15 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
                                 {dailyAssignments[dateStr]?.includes(partTimer.id) && (
                                   <div className="flex items-center gap-2">
                                     <Label htmlFor={`salary-${partTimer.id}-${dateStr}`} className="text-xs whitespace-nowrap">
-                                      Event Salary (RM):
+                                      Hourly Rate (RM/hr):
                                     </Label>
                                     <Input
                                       id={`salary-${partTimer.id}-${dateStr}`}
                                       type="number"
                                       step="0.01"
                                       min="0"
-                                      placeholder="0.00"
-                                      value={staffSalaries[`${partTimer.id}-${dateStr}`] || ''}
+                                      placeholder="12.50"
+                                      value={staffSalaries[`${partTimer.id}-${dateStr}`] ?? '12.50'}
                                       onChange={(e) => setStaffSalaries(prev => ({
                                         ...prev,
                                         [`${partTimer.id}-${dateStr}`]: e.target.value
@@ -432,14 +460,30 @@ export function EventDialog({ open, onOpenChange, event, selectedDate }: EventDi
             )}
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEdit ? 'Update' : 'Create'} Event
-            </Button>
+          <DialogFooter className="gap-2 flex-row justify-between sm:justify-between">
+            {isEdit ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                onClick={handleDelete}
+                disabled={isLoading || deleteMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Event
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {isEdit ? 'Update' : 'Create'} Event
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

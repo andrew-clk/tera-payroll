@@ -14,7 +14,9 @@ interface EventHistory {
   totalDays: number;
   workedDays: number;
   completedDays: number;
-  salary: number;
+  hourlyRate: number;
+  hoursWorked: number;
+  salary: number; // hoursWorked × hourlyRate
   dates: string[];
 }
 
@@ -64,10 +66,17 @@ export default function PartTimerHistory() {
         const attendanceRecords = await getAttendanceByPartTimerAndEvent(partTimerId, event.id);
         const completedDays = attendanceRecords.filter(a => a.status === 'completed').length;
 
-        // Get salary for this event
+        // Get hourly rate for this event
         const staffSalaries = await getEventStaffSalaries(event.id);
         const staffSalary = staffSalaries.find(s => s.partTimerId === partTimerId);
-        const salary = staffSalary ? parseFloat(staffSalary.salary) : 0;
+        const hourlyRate = staffSalary ? parseFloat(staffSalary.salary) : 0;
+
+        // Calculate total hours worked from completed attendance records
+        const hoursWorked = attendanceRecords.reduce(
+          (sum, a) => sum + parseFloat(String(a.hoursWorked || 0)),
+          0
+        );
+        const salary = hoursWorked * hourlyRate;
 
         histories.push({
           eventId: event.id,
@@ -75,6 +84,8 @@ export default function PartTimerHistory() {
           totalDays: assignedDates.length,
           workedDays: attendanceRecords.length,
           completedDays,
+          hourlyRate,
+          hoursWorked,
           salary,
           dates: assignedDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime()),
         });
@@ -198,7 +209,7 @@ export default function PartTimerHistory() {
                           RM {history.salary.toFixed(2)}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          Total Payment
+                          {history.hoursWorked.toFixed(2)}h × RM {history.hourlyRate.toFixed(2)}/hr
                         </div>
                       </div>
                     </div>

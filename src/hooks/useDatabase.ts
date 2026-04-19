@@ -6,6 +6,7 @@ import {
   getAllPayroll,
   getDashboardStats,
   getAllEventDailyAssignments,
+  getAllEventStaffSalaries,
   createPartTimer,
   updatePartTimer,
   deletePartTimer,
@@ -42,6 +43,14 @@ export function useEventDailyAssignments() {
   return useQuery({
     queryKey: ['eventDailyAssignments'],
     queryFn: getAllEventDailyAssignments,
+  });
+}
+
+// Event Staff Salaries (all, for rate lookups)
+export function useEventStaffSalaries() {
+  return useQuery({
+    queryKey: ['eventStaffSalaries'],
+    queryFn: getAllEventStaffSalaries,
   });
 }
 
@@ -106,25 +115,15 @@ export function useDeletePartTimer() {
 
 // Event Mutations
 export function useCreateEvent() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createEvent,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-    },
   });
 }
 
 export function useUpdateEvent() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<NewEvent> }) =>
       updateEvent(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-    },
   });
 }
 

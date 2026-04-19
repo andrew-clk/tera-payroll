@@ -60,7 +60,9 @@ export interface Attendance {
 export interface EventPayBreakdown {
   eventId: string;
   eventName: string;
-  salary: number;
+  hourlyRate: number;
+  hoursWorked: number;
+  salary: number; // hourlyRate × hoursWorked
   daysWorked: number;
 }
 

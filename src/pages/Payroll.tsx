@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Search, Filter, FileText, Lock, CheckCircle2, Loader2, Download, Eye, Calendar, AlertCircle } from 'lucide-react';
+import { Search, Filter, FileText, Lock, CheckCircle2, Loader2, Download, Eye, Calendar, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePayroll, usePartTimers, useEvents, useAttendance } from '@/hooks/useDatabase';
+import { usePayroll, usePartTimers, useEvents, useAttendance, useDeletePayroll } from '@/hooks/useDatabase';
 import { format, parseISO, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toNumber, type EventPayBreakdown } from '@/types';
@@ -25,6 +25,7 @@ import { Payroll } from '@/types';
 import { GeneratePayrollDialog } from '@/components/payroll/GeneratePayrollDialog';
 import { PayslipPreviewDialog } from '@/components/payroll/PayslipPreviewDialog';
 import { generatePayslipPDF } from '@/lib/generatePayslipPDF';
+import { toast } from 'sonner';
 
 export default function PayrollPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,9 +40,23 @@ export default function PayrollPage() {
   const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
   const { data: events, isLoading: isLoadingEvents } = useEvents();
   const { data: attendance, isLoading: isLoadingAttendance } = useAttendance();
+  const deleteMutation = useDeletePayroll();
 
   const getPartTimerName = (id: string) => (partTimers ?? []).find(p => p.id === id)?.name || 'Unknown';
   const getPartTimer = (id: string) => (partTimers ?? []).find(p => p.id === id);
+
+  const handleDeletePayroll = async (payrollItem: Payroll) => {
+    const name = getPartTimerName(payrollItem.partTimerId);
+    const range = `${format(new Date(payrollItem.dateRangeStart), 'MMM d')} – ${format(new Date(payrollItem.dateRangeEnd), 'MMM d, yyyy')}`;
+    if (!window.confirm(`Delete payroll for ${name} (${range})? This cannot be undone.`)) return;
+    try {
+      await deleteMutation.mutateAsync(payrollItem.id);
+      if (selectedPayroll?.id === payrollItem.id) setSelectedPayroll(null);
+      toast.success('Payroll deleted');
+    } catch {
+      toast.error('Failed to delete payroll');
+    }
+  };
 
   const handleDownloadPayslip = (payrollItem: Payroll) => {
     const partTimer = getPartTimer(payrollItem.partTimerId);
@@ -281,6 +296,19 @@ export default function PayrollPage() {
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">PDF</span>
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeletePayroll(payrollItem);
+                    }}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -373,7 +401,10 @@ export default function PayrollPage() {
                           <div key={item.eventId} className="flex justify-between py-2 bg-muted/30 px-3 rounded">
                             <div>
                               <span className="font-medium">{item.eventName}</span>
-                              <span className="text-xs text-muted-foreground ml-2">({item.daysWorked} {item.daysWorked === 1 ? 'day' : 'days'})</span>
+                              <span className="text-xs text-muted-foreground ml-2">
+                                ({item.daysWorked} {item.daysWorked === 1 ? 'day' : 'days'}
+                                {item.hoursWorked != null ? ` · ${Number(item.hoursWorked).toFixed(2)}h × RM ${Number(item.hourlyRate ?? 0).toFixed(2)}/hr` : ''})
+                              </span>
                             </div>
                             <span className="font-medium">RM {item.salary.toFixed(2)}</span>
                           </div>
