@@ -178,22 +178,22 @@ export default function PartTimers() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingPartTimer(partTimer)}>Edit Profile</DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingPartTimer(partTimer); }}>Edit Profile</DropdownMenuItem>
                       <DropdownMenuItem>View Attendance</DropdownMenuItem>
                       <DropdownMenuItem>View Payroll</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/part-timer/login')}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate('/part-timer/login'); }}>
                         <LogIn className="w-4 h-4 mr-2" />
                         Part-Timer Login
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-warning"
-                        onClick={() => setDeactivatingPartTimer(partTimer)}
+                        onClick={(e) => { e.stopPropagation(); setDeactivatingPartTimer(partTimer); }}
                       >
                         Deactivate
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => setDeletingPartTimer(partTimer)}
+                        onClick={(e) => { e.stopPropagation(); setDeletingPartTimer(partTimer); }}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
                         Delete
@@ -233,22 +233,22 @@ export default function PartTimers() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setEditingPartTimer(partTimer)}>Edit Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingPartTimer(partTimer); }}>Edit Profile</DropdownMenuItem>
                   <DropdownMenuItem>View Attendance</DropdownMenuItem>
                   <DropdownMenuItem>View Payroll</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/part-timer/login')}>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate('/part-timer/login'); }}>
                     <LogIn className="w-4 h-4 mr-2" />
                     Part-Timer Login
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-warning"
-                    onClick={() => setDeactivatingPartTimer(partTimer)}
+                    onClick={(e) => { e.stopPropagation(); setDeactivatingPartTimer(partTimer); }}
                   >
                     Deactivate
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive"
-                    onClick={() => setDeletingPartTimer(partTimer)}
+                    onClick={(e) => { e.stopPropagation(); setDeletingPartTimer(partTimer); }}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete
