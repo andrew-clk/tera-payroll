@@ -48,6 +48,7 @@ export default function Dashboard() {
           icon={Users}
           variant="primary"
           trend={{ value: 12, isPositive: true }}
+          href="/part-timers"
         />
         <StatCard
           title="Upcoming Events"
@@ -55,6 +56,7 @@ export default function Dashboard() {
           subtitle="Next 30 days"
           icon={Calendar}
           variant="info"
+          href="/events"
         />
         <StatCard
           title="Pending Payroll"
@@ -62,6 +64,7 @@ export default function Dashboard() {
           subtitle="Requires confirmation"
           icon={Clock}
           variant="warning"
+          href="/payroll"
         />
         <StatCard
           title="Total Payroll"
@@ -69,6 +72,7 @@ export default function Dashboard() {
           subtitle="January 2024"
           icon={DollarSign}
           variant="success"
+          href="/reports"
         />
       </div>
 

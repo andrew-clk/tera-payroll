@@ -1,4 +1,5 @@
 import { LucideIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface StatCardProps {
@@ -11,6 +12,7 @@ interface StatCardProps {
     isPositive: boolean;
   };
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'info';
+  href?: string;
 }
 
 const variantStyles = {
@@ -21,9 +23,13 @@ const variantStyles = {
   info: 'bg-info/10 text-info',
 };
 
-export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 'default' }: StatCardProps) {
+export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 'default', href }: StatCardProps) {
+  const navigate = useNavigate();
   return (
-    <div className="stat-card animate-slide-up">
+    <div
+      className={cn("stat-card animate-slide-up", href && "cursor-pointer hover:ring-2 hover:ring-primary/30 transition-shadow")}
+      onClick={href ? () => navigate(href) : undefined}
+    >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
