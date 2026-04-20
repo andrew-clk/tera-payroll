@@ -34,6 +34,7 @@ export function EventCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [newEventDate, setNewEventDate] = useState<Date | null>(null);
   const [eventAssignments, setEventAssignments] = useState<Record<string, EventDailyAssignment[]>>({});
   const [eventSalaries, setEventSalaries] = useState<Record<string, Array<{ partTimerId: string; salary: string }>>>({});
 
@@ -159,22 +160,33 @@ export function EventCalendar() {
               const isToday = isSameDay(date, new Date());
               const isCurrentMonth = isSameMonth(date, currentMonth);
 
+              const isEmpty = dayEvents.length === 0;
+
               return (
                 <div
                   key={`${rowIndex}-${dateIndex}`}
+                  onClick={() => isEmpty && setNewEventDate(date)}
                   className={cn(
-                    "min-h-[140px] p-2 border-b border-r border-border transition-colors",
+                    "min-h-[140px] p-2 border-b border-r border-border transition-colors group",
                     !isCurrentMonth && "bg-muted/30",
                     isToday && "bg-primary/5",
-                    dateIndex === 6 && "border-r-0"
+                    dateIndex === 6 && "border-r-0",
+                    isEmpty && "cursor-pointer hover:bg-primary/5"
                   )}
                 >
-                  <div className={cn(
-                    "text-sm font-medium mb-1",
-                    isToday && "text-primary",
-                    !isCurrentMonth && "text-muted-foreground"
-                  )}>
-                    {format(date, 'd')}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className={cn(
+                      "text-sm font-medium",
+                      isToday && "text-primary",
+                      !isCurrentMonth && "text-muted-foreground"
+                    )}>
+                      {format(date, 'd')}
+                    </div>
+                    {isEmpty && (
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary text-lg leading-none select-none">
+                        +
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     {dayEvents.slice(0, 3).map(event => {
@@ -346,6 +358,13 @@ export function EventCalendar() {
         open={!!editingEvent}
         onOpenChange={(open) => !open && setEditingEvent(null)}
         event={editingEvent}
+      />
+
+      {/* New Event Dialog (from clicking empty date) */}
+      <EventDialog
+        open={!!newEventDate}
+        onOpenChange={(open) => !open && setNewEventDate(null)}
+        selectedDate={newEventDate ?? undefined}
       />
     </>
   );
