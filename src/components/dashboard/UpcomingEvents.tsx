@@ -1,18 +1,25 @@
 import { Calendar, MapPin, Users } from 'lucide-react';
-import { mockEvents, mockPartTimers } from '@/data/mockData';
-import { format, parseISO, isAfter } from 'date-fns';
+import { useEvents, useEventDailyAssignments } from '@/hooks/useDatabase';
+import { format, parseISO } from 'date-fns';
 
 export function UpcomingEvents() {
-  const upcomingEvents = mockEvents
-    .filter(event => isAfter(parseISO(event.date), new Date()) || event.date === format(new Date(), 'yyyy-MM-dd'))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const { data: events = [] } = useEvents();
+  const { data: allAssignments = [] } = useEventDailyAssignments();
+
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  const upcomingEvents = events
+    .filter(e => e.endDate >= today)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
     .slice(0, 4);
 
-  const getAssignedNames = (ids: string[]) => {
-    return ids
-      .map(id => mockPartTimers.find(p => p.id === id)?.name.split(' ')[0])
-      .filter(Boolean)
-      .join(', ');
+  const getStaffCount = (eventId: string) => {
+    const eventAssignments = allAssignments.filter((a: any) => a.eventId === eventId);
+    const uniqueIds = new Set<string>();
+    eventAssignments.forEach((a: any) => {
+      (a.assignedPartTimers as string[]).forEach(id => uniqueIds.add(id));
+    });
+    return uniqueIds.size;
   };
 
   return (
@@ -22,36 +29,39 @@ export function UpcomingEvents() {
         {upcomingEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">No upcoming events</p>
         ) : (
-          upcomingEvents.map((event, index) => (
-            <div 
-              key={event.id} 
-              className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer animate-slide-up"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <h4 className="font-medium text-foreground text-sm">{event.name}</h4>
-                <span className="badge-status badge-active">
-                  {event.assignedPartTimers.length} staff
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{format(parseISO(event.date), 'EEE, MMM d')} • {event.startTime} - {event.endTime}</span>
+          upcomingEvents.map((event, index) => {
+            const staffCount = getStaffCount(event.id);
+            const isMultiDay = event.startDate !== event.endDate;
+            return (
+              <div
+                key={event.id}
+                className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors animate-slide-up"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="font-medium text-foreground text-sm">{event.name}</h4>
+                  <span className="badge-status badge-active">{staffCount} staff</span>
                 </div>
-                {event.location && (
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span className="truncate">{event.location}</span>
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>
+                      {isMultiDay
+                        ? `${format(parseISO(event.startDate), 'MMM d')} – ${format(parseISO(event.endDate), 'MMM d, yyyy')}`
+                        : format(parseISO(event.startDate), 'EEE, MMM d, yyyy')}
+                      {' '}• {event.startTime} – {event.endTime}
+                    </span>
                   </div>
-                )}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Users className="w-3.5 h-3.5" />
-                  <span className="truncate">{getAssignedNames(event.assignedPartTimers)}</span>
+                  {event.location && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span className="truncate">{event.location}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
