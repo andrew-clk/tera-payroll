@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Search, Filter, FileText, Lock, CheckCircle2, Loader2, Download, Eye, Calendar, AlertCircle, Trash2 } from 'lucide-react';
+import { Search, FileText, CheckCircle2, Loader2, Download, Eye, Calendar, AlertCircle, Trash2, CheckCheck, Banknote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePayroll, usePartTimers, useEvents, useAttendance, useDeletePayroll } from '@/hooks/useDatabase';
-import { format, parseISO, isPast } from 'date-fns';
+import { usePayroll, usePartTimers, useDeletePayroll, useUpdatePayroll } from '@/hooks/useDatabase';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toNumber, type EventPayBreakdown } from '@/types';
 import {
@@ -38,12 +38,20 @@ export default function PayrollPage() {
 
   const { data: payroll, isLoading: isLoadingPayroll } = usePayroll();
   const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
-  const { data: events, isLoading: isLoadingEvents } = useEvents();
-  const { data: attendance, isLoading: isLoadingAttendance } = useAttendance();
   const deleteMutation = useDeletePayroll();
+  const updateMutation = useUpdatePayroll();
 
   const getPartTimerName = (id: string) => (partTimers ?? []).find(p => p.id === id)?.name || 'Unknown';
   const getPartTimer = (id: string) => (partTimers ?? []).find(p => p.id === id);
+
+  const handleStatusChange = async (payrollItem: Payroll, newStatus: 'confirmed' | 'paid') => {
+    try {
+      await updateMutation.mutateAsync({ id: payrollItem.id, data: { status: newStatus } });
+      toast.success(newStatus === 'confirmed' ? 'Payroll confirmed' : 'Payroll marked as paid');
+    } catch {
+      toast.error('Failed to update status');
+    }
+  };
 
   const handleDeletePayroll = async (payrollItem: Payroll) => {
     const name = getPartTimerName(payrollItem.partTimerId);
@@ -90,58 +98,13 @@ export default function PayrollPage() {
   const draftCount = (payroll ?? []).filter(p => p.status === 'draft').length;
   const confirmedCount = (payroll ?? []).filter(p => p.status === 'confirmed').length;
 
-  // Calculate unpaid jobs - completed events with attendance but no payroll generated
-  const unpaidJobs = useMemo(() => {
-    if (!events || !attendance || !payroll || !partTimers) return [];
-
-    const completedEvents = (events ?? []).filter(event =>
-      isPast(parseISO(event.endDate))
-    );
-
-    const unpaidList: Array<{
-      eventId: string;
-      eventName: string;
-      eventDate: string;
-      partTimerId: string;
-      partTimerName: string;
-      attendanceCount: number;
-    }> = [];
-
-    completedEvents.forEach(event => {
-      // Get all attendance for this event
-      const eventAttendance = (attendance ?? []).filter(att => att.eventId === event.id);
-
-      // Group by part-timer
-      const partTimerIds = [...new Set(eventAttendance.map(att => att.partTimerId))];
-
-      partTimerIds.forEach(partTimerId => {
-        // Check if payroll exists for this part-timer covering this event date
-        const hasPayroll = (payroll ?? []).some(p =>
-          p.partTimerId === partTimerId &&
-          event.endDate >= p.dateRangeStart &&
-          event.endDate <= p.dateRangeEnd
-        );
-
-        if (!hasPayroll) {
-          const partTimerAttendance = eventAttendance.filter(att => att.partTimerId === partTimerId);
-          const partTimer = (partTimers ?? []).find(pt => pt.id === partTimerId);
-
-          if (partTimer && partTimerAttendance.length > 0) {
-            unpaidList.push({
-              eventId: event.id,
-              eventName: event.name,
-              eventDate: event.endDate,
-              partTimerId,
-              partTimerName: partTimer.name,
-              attendanceCount: partTimerAttendance.length,
-            });
-          }
-        }
-      });
-    });
-
-    return unpaidList;
-  }, [events, attendance, payroll, partTimers]);
+  // Payroll records pending action (draft or confirmed but not yet paid)
+  const pendingPayroll = useMemo(() =>
+    (payroll ?? [])
+      .filter(p => p.status === 'draft' || p.status === 'confirmed')
+      .sort((a, b) => new Date(b.dateRangeEnd).getTime() - new Date(a.dateRangeEnd).getTime()),
+    [payroll]
+  );
 
   const statusConfig = {
     draft: { color: 'badge-pending', label: 'Draft' },
@@ -149,7 +112,7 @@ export default function PayrollPage() {
     paid: { color: 'bg-info/10 text-info', label: 'Paid' },
   };
 
-  if (isLoadingPayroll || isLoadingPartTimers || isLoadingEvents || isLoadingAttendance) {
+  if (isLoadingPayroll || isLoadingPartTimers) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-2">
@@ -203,9 +166,9 @@ export default function PayrollPage() {
           </TabsTrigger>
           <TabsTrigger value="unpaid">
             Unpaid Jobs
-            {unpaidJobs.length > 0 && (
+            {pendingPayroll.length > 0 && (
               <span className="ml-2 bg-warning/20 text-warning px-2 py-0.5 rounded-full text-xs font-semibold">
-                {unpaidJobs.length}
+                {pendingPayroll.length}
               </span>
             )}
           </TabsTrigger>
@@ -318,51 +281,110 @@ export default function PayrollPage() {
         </TabsContent>
 
         {/* Unpaid Jobs Tab */}
-        <TabsContent value="unpaid" className="space-y-6 mt-6">
-          {unpaidJobs.length === 0 ? (
+        <TabsContent value="unpaid" className="space-y-3 mt-6">
+          {pendingPayroll.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-8 text-center">
               <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">All Jobs Paid!</h3>
-              <p className="text-muted-foreground">There are no unpaid jobs at the moment.</p>
+              <h3 className="text-lg font-semibold mb-2">All Payroll Settled!</h3>
+              <p className="text-muted-foreground">No pending payroll records.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {unpaidJobs.map((job, index) => (
-                <div
-                  key={`${job.eventId}-${job.partTimerId}`}
-                  className="bg-card rounded-xl border border-warning/30 p-5 hover:shadow-soft transition-shadow animate-slide-up"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center flex-shrink-0">
-                        <AlertCircle className="w-6 h-6 text-warning" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-foreground">{job.partTimerName}</h3>
-                          <span className="badge-status badge-pending">Unpaid</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          <Calendar className="w-3 h-3 inline mr-1" />
-                          {job.eventName}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Event Date: {format(parseISO(job.eventDate), 'MMM d, yyyy')} • {job.attendanceCount} {job.attendanceCount === 1 ? 'attendance' : 'attendances'}
-                        </p>
-                      </div>
+            pendingPayroll.map((payrollItem, index) => (
+              <div
+                key={payrollItem.id}
+                className={cn(
+                  "bg-card rounded-xl border p-5 transition-shadow animate-slide-up",
+                  payrollItem.status === 'draft' ? "border-warning/40" : "border-success/40"
+                )}
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {/* Left: info */}
+                  <div
+                    className="flex items-center gap-4 flex-1 cursor-pointer"
+                    onClick={() => setSelectedPayroll(payrollItem)}
+                  >
+                    <div className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
+                      payrollItem.status === 'draft' ? "bg-warning/10" : "bg-success/10"
+                    )}>
+                      {payrollItem.status === 'draft'
+                        ? <AlertCircle className="w-6 h-6 text-warning" />
+                        : <CheckCheck className="w-6 h-6 text-success" />
+                      }
                     </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-foreground">{getPartTimerName(payrollItem.partTimerId)}</h3>
+                        <span className={cn("badge-status", statusConfig[payrollItem.status].color)}>
+                          {statusConfig[payrollItem.status].label}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        <Calendar className="w-3 h-3 inline mr-1" />
+                        {format(new Date(payrollItem.dateRangeStart), 'MMM d')} – {format(new Date(payrollItem.dateRangeEnd), 'MMM d, yyyy')}
+                      </p>
+                      <p className="text-base font-bold text-foreground mt-0.5">
+                        RM {toNumber(payrollItem.totalPay).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right: actions */}
+                  <div className="flex flex-wrap gap-2">
+                    {payrollItem.status === 'draft' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2 border-success/50 text-success hover:bg-success/10 hover:text-success"
+                        onClick={() => handleStatusChange(payrollItem, 'confirmed')}
+                        disabled={updateMutation.isPending}
+                      >
+                        <CheckCheck className="w-4 h-4" />
+                        Confirm
+                      </Button>
+                    )}
+                    {payrollItem.status === 'confirmed' && (
+                      <Button
+                        size="sm"
+                        className="gap-2 bg-success hover:bg-success/90 text-white"
+                        onClick={() => handleStatusChange(payrollItem, 'paid')}
+                        disabled={updateMutation.isPending}
+                      >
+                        <Banknote className="w-4 h-4" />
+                        Mark as Paid
+                      </Button>
+                    )}
                     <Button
+                      variant="outline"
+                      size="sm"
                       className="gap-2"
-                      onClick={() => setGenerateDialogOpen(true)}
+                      onClick={() => handlePreviewPayslip(payrollItem)}
                     >
-                      <FileText className="w-4 h-4" />
-                      Generate Payroll
+                      <Eye className="w-4 h-4" />
+                      <span className="hidden sm:inline">Preview</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleDownloadPayslip(payrollItem)}
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="hidden sm:inline">PDF</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                      onClick={() => handleDeletePayroll(payrollItem)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))
           )}
         </TabsContent>
       </Tabs>
@@ -473,7 +495,11 @@ export default function PayrollPage() {
       </Dialog>
 
       {/* Generate Payroll Dialog */}
-      <GeneratePayrollDialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen} />
+      <GeneratePayrollDialog
+        open={generateDialogOpen}
+        onOpenChange={setGenerateDialogOpen}
+        onSuccess={() => setActiveTab('unpaid')}
+      />
 
       {/* Payslip Preview Dialog */}
       {previewPayroll && (

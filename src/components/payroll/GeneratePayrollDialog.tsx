@@ -35,9 +35,10 @@ type PayrollFormData = z.infer<typeof payrollSchema>;
 interface GeneratePayrollDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDialogProps) {
+export function GeneratePayrollDialog({ open, onOpenChange, onSuccess }: GeneratePayrollDialogProps) {
   const { data: partTimers } = usePartTimers();
   const { data: events } = useEvents();
   const { data: attendance } = useAttendance();
@@ -185,6 +186,7 @@ export function GeneratePayrollDialog({ open, onOpenChange }: GeneratePayrollDia
       reset();
       setEventBreakdown([]);
       onOpenChange(false);
+      onSuccess?.();
     } catch (error) {
       toast.error('Failed to generate payroll');
       console.error(error);
