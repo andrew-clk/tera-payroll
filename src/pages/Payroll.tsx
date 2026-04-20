@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, FileText, CheckCircle2, Loader2, Download, Eye, Calendar, AlertCircle, Trash2, CheckCheck, Banknote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePayroll, usePartTimers, useDeletePayroll, useUpdatePayroll } from '@/hooks/useDatabase';
+import { usePayroll, usePartTimers, useDeletePayroll, useUpdatePayroll, useAttendance, useEvents, useEventStaffSalaries } from '@/hooks/useDatabase';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toNumber, type EventPayBreakdown } from '@/types';
@@ -38,6 +38,9 @@ export default function PayrollPage() {
 
   const { data: payroll, isLoading: isLoadingPayroll } = usePayroll();
   const { data: partTimers, isLoading: isLoadingPartTimers } = usePartTimers();
+  const { data: attendance } = useAttendance();
+  const { data: events } = useEvents();
+  const { data: staffSalaries } = useEventStaffSalaries();
   const deleteMutation = useDeletePayroll();
   const updateMutation = useUpdatePayroll();
 
@@ -71,13 +74,11 @@ export default function PayrollPage() {
     if (partTimer) {
       generatePayslipPDF(
         payrollItem,
-        {
-          name: partTimer.name,
-          ic: partTimer.ic,
-          bankName: partTimer.bankName,
-          bankAccount: partTimer.bankAccount,
-        },
-        'download'
+        { name: partTimer.name, ic: partTimer.ic, bankName: partTimer.bankName, bankAccount: partTimer.bankAccount },
+        'download',
+        attendance as any,
+        events as any,
+        staffSalaries as any
       );
     }
   };
@@ -514,6 +515,9 @@ export default function PayrollPage() {
           partTimerIc={getPartTimer(previewPayroll.partTimerId)?.ic || ''}
           partTimerBankName={getPartTimer(previewPayroll.partTimerId)?.bankName || ''}
           partTimerBankAccount={getPartTimer(previewPayroll.partTimerId)?.bankAccount || ''}
+          attendanceRecords={attendance as any}
+          events={events as any}
+          staffSalaries={staffSalaries as any}
         />
       )}
     </div>

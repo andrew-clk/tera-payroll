@@ -5,6 +5,27 @@ import { Download, Loader2 } from 'lucide-react';
 import { previewPayslipPDF, generatePayslipPDF } from '@/lib/generatePayslipPDF';
 import type { Payroll } from '@/types';
 
+interface AttendanceRow {
+  partTimerId: string;
+  eventId: string;
+  date: string;
+  clockIn?: string | null;
+  clockOut?: string | null;
+  hoursWorked?: string | number | null;
+  status: string;
+}
+
+interface EventInfo {
+  id: string;
+  name: string;
+}
+
+interface StaffSalaryInfo {
+  eventId: string;
+  partTimerId: string;
+  salary: string | number;
+}
+
 interface PayslipPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -13,6 +34,9 @@ interface PayslipPreviewDialogProps {
   partTimerIc: string;
   partTimerBankName: string;
   partTimerBankAccount: string;
+  attendanceRecords?: AttendanceRow[];
+  events?: EventInfo[];
+  staffSalaries?: StaffSalaryInfo[];
 }
 
 export function PayslipPreviewDialog({
@@ -23,6 +47,9 @@ export function PayslipPreviewDialog({
   partTimerIc,
   partTimerBankName,
   partTimerBankAccount,
+  attendanceRecords,
+  events,
+  staffSalaries,
 }: PayslipPreviewDialogProps) {
   const [pdfDataUrl, setPdfDataUrl] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,33 +57,31 @@ export function PayslipPreviewDialog({
   useEffect(() => {
     if (open && payroll) {
       setIsGenerating(true);
-      // Generate PDF preview in the next tick to avoid blocking UI
       setTimeout(() => {
-        const dataUrl = previewPayslipPDF(payroll, {
-          name: partTimerName,
-          ic: partTimerIc,
-          bankName: partTimerBankName,
-          bankAccount: partTimerBankAccount,
-        });
+        const dataUrl = previewPayslipPDF(
+          payroll,
+          { name: partTimerName, ic: partTimerIc, bankName: partTimerBankName, bankAccount: partTimerBankAccount },
+          attendanceRecords,
+          events,
+          staffSalaries
+        );
         setPdfDataUrl(dataUrl);
         setIsGenerating(false);
       }, 100);
     } else {
       setPdfDataUrl('');
     }
-  }, [open, payroll, partTimerName, partTimerIc, partTimerBankName, partTimerBankAccount]);
+  }, [open, payroll, partTimerName, partTimerIc, partTimerBankName, partTimerBankAccount, attendanceRecords, events, staffSalaries]);
 
   const handleDownload = () => {
     if (payroll) {
       generatePayslipPDF(
         payroll,
-        {
-          name: partTimerName,
-          ic: partTimerIc,
-          bankName: partTimerBankName,
-          bankAccount: partTimerBankAccount,
-        },
-        'download'
+        { name: partTimerName, ic: partTimerIc, bankName: partTimerBankName, bankAccount: partTimerBankAccount },
+        'download',
+        attendanceRecords,
+        events,
+        staffSalaries
       );
     }
   };
